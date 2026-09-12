@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LaskiainenExtraPRO</title>
+<title>LaskiainenExtraPRO v5.6</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -68,7 +68,7 @@ main{max-width:1500px;margin:-36px auto 0;padding:0 20px 40px}
 <div class="logic">
 <div class="logicTitle">🍞 Miksi Leipäpöytä on tärkeä?</div>
 <div class="logicGrid">
-<div class="logicBox"><b>Suunnitelmassa Leipäpöytä kertoo odotetun ruokailijamäärän</b><span>Kun päivää suunnitellaan, Leipäpöydälle merkitty annosmäärä toimii arviona siitä, kuinka monta ruokailijaa toimipaikkaan odotetaan. Tätä määrää käytetään myös suunnitellun annoksen keskihinnan laskennassa.</span></div>
+<div class="logicBox"><b>Suunnitelmassa Leipäpöytä kertoo odotetun ruokailijamäärän</b><span>Kun päivää suunnitellaan, Leipäpöydälle merkitty annosmäärä toimii arviona siitä, kuinka monta ruokailijaa toimipaikkaan odotetaan. Päivän Leipäpöytä-määrä huomioidaan laskennassa vain kerran, vaikka sama määrä esiintyisi usealla reseptirivillä.</span></div>
 <div class="logicBox"><b>Toteumassa Leipäpöytä kertoo toteutuneen ruokailijamäärän</b><span>Kun päivä on toteutunut, Leipäpöydälle kirjattu tuotettu määrä tulkitaan toteutuneeksi ruokailijamääräksi. Toteutunut annoksen keskihinta saadaan jakamalla kuukauden toteutunut raaka-ainekustannus tällä ruokailijamäärällä.</span></div>
 </div>
 <div class="sectionNote" style="margin-top:9px"><strong>Kilot lasketaan eri tavalla:</strong> suunnitellut ja toteutuneet tuotantokilot muodostuvat kaikista ruoista, eivät vain Leipäpöydästä. Viimeisin aineistossa oleva kuukausi on aina suunnittelukuukausi, vaikka siihen olisi jo kertynyt toteumaa.</div>
@@ -183,12 +183,25 @@ $('siteSelect').onchange=prepare;
 
 function prepare(){
  const site=$('siteSelect').value||raw[0]?.site;
- const data=raw.filter(x=>x.site===site),m=new Map();
+ const data=raw.filter(x=>x.site===site),m=new Map(),breadPlanByDay=new Map();
  for(const x of data){
   const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
   d.planKg+=x.plannedKg;d.planCost+=x.planCost;d.actualKg+=x.actualKg;d.actualCost+=x.actualCost;d.wasteKg+=x.wasteKg;d.wasteCost+=x.wasteCost;
-  if(x.menu.toLowerCase().includes('leipäpöytä')){d.planBread+=x.planPort;if(x.prod>0)d.actualBread+=x.prod}
+
+  if(x.menu.toLowerCase().includes('leipäpöytä')){
+    // Suunniteltu Leipäpöytä on päiväkohtainen kävijämäärä:
+    // samaa päiväarvoa ei summata reseptiriveiltä useaan kertaan.
+    const bk=x.date;
+    breadPlanByDay.set(bk,Math.max(breadPlanByDay.get(bk)||0,x.planPort||0));
+
+    // Toteutunut Leipäpöytä jätetään toistaiseksi nykyiselle reseptirivitason logiikalle.
+    if(x.prod>0)d.actualBread+=x.prod;
+  }
   m.set(x.month,d)
+ }
+ for(const [date,val] of breadPlanByDay){
+   const month=date.slice(0,7),d=m.get(month);
+   if(d)d.planBread+=val;
  }
  months=[...m.values()].sort((a,b)=>a.month.localeCompare(b.month));
  planningMonth=months.at(-1)?.month||'';
@@ -355,11 +368,14 @@ function renderBasic(){
 
  // Month totals
  let monthPlanKg=0,monthPlanCost=0,monthBread=0,monthActualKg=0,monthActualCost=0;
+ const monthBreadByDay=new Map();
  for(const x of data){
    monthPlanKg+=x.plannedKg;monthPlanCost+=x.planCost;
    monthActualKg+=x.actualKg;monthActualCost+=x.actualCost;
-   if(x.menu.toLowerCase().includes('leipäpöytä'))monthBread+=x.planPort;
+   if(x.menu.toLowerCase().includes('leipäpöytä'))
+     monthBreadByDay.set(x.date,Math.max(monthBreadByDay.get(x.date)||0,x.planPort||0));
  }
+ monthBread=[...monthBreadByDay.values()].reduce((s,v)=>s+v,0);
  const monthAvg=monthBread?monthPlanCost/monthBread:null;
  $('basicMonth').innerHTML=`<div class="basicMonthSummary">
    ${metric('Suunnittelukuukausi',monthName(planningMonth),`${num.format(monthBread)} suunniteltua ruokailijaa`,'info')}
@@ -383,7 +399,7 @@ function renderBasic(){
    const d=days.get(x.date)||{date:x.date,planKg:0,planCost:0,bread:0,actualKg:0,actualCost:0,hasActual:false,menus:new Map()};
    d.planKg+=x.plannedKg;d.planCost+=x.planCost;d.actualKg+=x.actualKg;d.actualCost+=x.actualCost;
    if(x.prod>0||x.actualKg>0)d.hasActual=true;
-   if(x.menu.toLowerCase().includes('leipäpöytä'))d.bread+=x.planPort;
+   if(x.menu.toLowerCase().includes('leipäpöytä'))d.bread=Math.max(d.bread,x.planPort||0);
 
    const m=d.menus.get(x.menu)||{name:x.menu,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0,recipes:new Map()};
    if(x.planPort>0)m.qtyCandidates.push(x.planPort);
