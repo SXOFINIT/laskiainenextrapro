@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ruokatuotannon seuranta v5.10</title>
+<title>LaskiainenExtraPro</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -54,14 +54,34 @@ main{max-width:1500px;margin:-36px auto 0;padding:0 20px 40px}
 .hidden{display:none!important}
 @media(max-width:1100px){.hero{grid-template-columns:repeat(2,1fr)}.scoreRow,.months,.charts{grid-template-columns:1fr}.monthGrid{grid-template-columns:repeat(2,1fr)}.basicMonthSummary{grid-template-columns:repeat(2,1fr)}.dayStats{grid-template-columns:repeat(3,1fr)}.menuButton{grid-template-columns:1.5fr repeat(2,.8fr) auto}.menuButton .hideTablet{display:none}}
 @media(max-width:650px){main{padding:0 10px 25px}.logicGrid,.hero,.monthGrid,.basicMonthSummary{grid-template-columns:1fr}.dayStats{grid-template-columns:repeat(2,1fr)}.menuButton{grid-template-columns:1fr auto}.menuButton .menuMetric{display:none}.siteRow{align-items:stretch;flex-direction:column}.siteRow select{min-width:0;width:100%}.title{font-size:24px}}
+
+.purchaseToolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.purchaseSummary{margin-top:12px}
+.purchaseMonth{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;margin-top:12px}
+.purchaseMonthHead{padding:12px 14px;background:#f8fafc;border-bottom:1px solid #eaecf0;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.purchaseMonthTitle{font-size:15px;font-weight:900}
+.purchaseMonthTotal{font-size:14px;font-weight:900}
+.purchaseGroup{border-top:1px solid #eaecf0}
+.purchaseGroup:first-child{border-top:0}
+.purchaseGroupBtn{width:100%;border:0;background:#fff;padding:11px 14px;display:grid;grid-template-columns:1.5fr .7fr .7fr auto;gap:10px;align-items:center;text-align:left;cursor:pointer;color:#344054}
+.purchaseGroupBtn:hover{background:#f9fafb}
+.purchaseGroupName{font-weight:850}
+.purchaseGroup.open .purchaseArticles{display:block}
+.purchaseArticles{display:none;border-top:1px solid #eaecf0;background:#fcfcfd}
+.purchaseArticles table{font-size:10px}
+.purchaseArticles th,.purchaseArticles td{padding:7px 10px}
+.purchaseChevron{font-size:13px;color:#667085}
+.monthGridTop,.monthGridBottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.monthGridBottom{margin-top:8px}
+@media(max-width:900px){.monthGridTop,.monthGridBottom{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><div class="headin"><div class="title">Ruokatuotannon seuranta</div><div class="subtitle">Usean kuukauden suunnitelma-, toteuma- ja hävikkiseuranta yhdestä aineistosta. Viimeisin aineistossa oleva kuukausi tulkitaan automaattisesti suunnittelukuukaudeksi. Excel-päivämäärät käsitellään suoraan kalenteripäivinä, jotta kuukauden ensimmäinen päivä ei siirry edelliseen kuukauteen.</div></div></header>
+<header><div class="headin"><div class="title">Ruokatuotannon seuranta</div><div class="subtitle">Usean kuukauden suunnitelma-, toteuma-, hävikki- ja ostoseuranta FoodFlow- ja ostoaineistoista. Viimeisin aineistossa oleva kuukausi tulkitaan automaattisesti suunnittelukuukaudeksi. Excel-päivämäärät käsitellään suoraan kalenteripäivinä, jotta kuukauden ensimmäinen päivä ei siirry edelliseen kuukauteen.</div></div></header>
 
 <main>
 <section class="card">
-<div class="loader"><label class="filebtn">Lataa aineisto<input id="file" type="file" accept=".xlsx,.xls"></label><div id="status" class="status">Ei aineistoa ladattuna.</div></div>
+<div class="loader"><label class="filebtn">Lataa aineisto<input id="file" type="file" accept=".xlsx,.xls" multiple></label><div id="status" class="status">Ei aineistoa ladattuna.</div></div>
 <div class="progress"><div id="bar"></div></div>
 <div id="siteRow" class="siteRow hidden"><label>Toimipaikka</label><select id="siteSelect"></select></div>
 
@@ -86,7 +106,7 @@ Kuukauden yhteenveto käyttää oletuksena SETMENU-tasoa, mutta laskentatavan vo
 </section>
 
 <div id="app" class="hidden">
-<div class="tabs"><button class="tab active" data-tab="summary">Yhteenveto</button><button class="tab" data-tab="daily">Päivätaso</button><button class="tab" data-tab="basic">Suunnitelma</button><button class="tab" data-tab="trend">Kehitys</button></div>
+<div class="tabs"><button class="tab active" data-tab="summary">Yhteenveto</button><button class="tab" data-tab="daily">Päivätaso</button><button class="tab" data-tab="basic">Suunnitelma</button><button class="tab" data-tab="purchases">Ostot</button><button class="tab" data-tab="trend">Kehitys</button></div>
 
 <section id="summary" class="panel active">
 <div class="card">
@@ -184,6 +204,26 @@ Leipäpöydän ruokailijamäärä tulee aina SETMENU-tasolta.
 </div>
 </section>
 
+
+<section id="purchases" class="panel">
+<div class="card">
+<div class="sectionTitle">Ostot</div>
+<div class="sectionNote">
+Ostot summataan kuukausittain <code>ITEMGROUP</code>-tasolle kentästä <code>NET_AMOUNT</code>.
+Avaa tuoteryhmä nähdäksesi sen alla olevat <code>ARTICLENAME</code>-tason ostot.
+Näkymä käyttää valitun toimipaikan tietoja.
+</div>
+<div class="purchaseToolbar">
+<label><div class="fieldTitle">Hae tuoteryhmää tai artikkelia</div>
+<input id="purchaseSearch" type="text" placeholder="esim. Liha tai tuotteen nimi"></label>
+<button id="purchaseExpandAll" class="btn">Avaa kaikki</button>
+<button id="purchaseCollapseAll" class="btn">Sulje kaikki</button>
+</div>
+<div id="purchaseSummary" class="basicMonthSummary purchaseSummary"></div>
+<div id="purchaseGroups"></div>
+</div>
+</section>
+
 <section id="trend" class="panel">
 <div class="card">
 <div class="sectionTitle">Suunnitelma ja toteuma – tuotantokilot</div>
@@ -212,7 +252,7 @@ const pct=new Intl.NumberFormat('fi-FI',{style:'percent',maximumFractionDigits:1
 const norm=v=>v==null?'':String(v).replace(/\s+/g,' ').trim();
 const safe=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
 const esc=s=>norm(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-let raw=[],recipeRows=[],setmenuByKey=new Map(),breadBySiteDate=new Map(),months=[],setmenuMonths=[],detailMonths=[],planningMonth='',summaryMode='SETMENU',planMode='SETMENU',dailyMode='SETMENU',charts={};
+let raw=[],recipeRows=[],setmenuByKey=new Map(),breadBySiteDate=new Map(),purchaseBySiteMonth=new Map(),purchaseDetailMap=new Map(),months=[],setmenuMonths=[],detailMonths=[],planningMonth='',summaryMode='SETMENU',planMode='SETMENU',dailyMode='SETMENU',charts={};
 
 function dateParts(v){
  if(typeof v==='number'&&Number.isFinite(v)){
@@ -233,91 +273,135 @@ function destroy(k){if(charts[k]){charts[k].destroy();delete charts[k]}}
 function setStatus(p,t){$('bar').style.width=p+'%';$('status').textContent=t}
 
 $('file').onchange=async e=>{
- const f=e.target.files[0];if(!f)return;
+ const files=[...e.target.files];if(!files.length)return;
  try{
-  setStatus(15,'Luetaan '+f.name+'…');
-  const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false,dense:true}),ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-  const h=rows[0].map(norm),ix=Object.fromEntries(h.map((x,i)=>[x.toUpperCase(),i]));
-  for(const c of ['COSTCENTERNAME','MENUPLANDATE','SETMENUNAME','ITEMNAME','REPORT_LEVEL','ORIGINAL_PLANNEDPORTIONS','ORIGINAL_PLANNEDWEIGHT','COS_ITEM','PRODUCEDPORTIONS','TOTALWEIGHT','WASTEPORTIONS','WASTEWEIGHT','COSTPERPORTION','PLANNED_TOTAL_WEIGHT','PLANNED_TOTAL_COST','ACTUAL_TOTAL_WEIGHT','ACTUAL_TOTAL_COST'])if(ix[c]===undefined)throw new Error('Aineistosta puuttuu '+c);
   raw=[];recipeRows=[];setmenuByKey=new Map();breadBySiteDate=new Map();
-  for(let r=1;r<rows.length;r++){
-   const a=rows[r],
-         site=norm(a[ix.COSTCENTERNAME]),
-         dateRaw=a[ix.MENUPLANDATE],
-         month=monthKey(dateRaw),
-         date=dateKey(dateRaw),
-         menu=norm(a[ix.SETMENUNAME]),
-         recipe=norm(a[ix.ITEMNAME]),
-         setmenuId=ix.SETMENUID===undefined?'':norm(a[ix.SETMENUID]),
-         reportLevel=norm(a[ix.REPORT_LEVEL]).toUpperCase();
-   if(!site||!month||!date)continue;
+  purchaseBySiteMonth=new Map();purchaseDetailMap=new Map();
 
-   const planPort=safe(a[ix.ORIGINAL_PLANNEDPORTIONS]),
-         planW=safe(a[ix.ORIGINAL_PLANNEDWEIGHT]),
-         cosItem=safe(a[ix.COS_ITEM]),
-         prod=safe(a[ix.PRODUCEDPORTIONS]),
-         tw=safe(a[ix.TOTALWEIGHT]),
-         wp=safe(a[ix.WASTEPORTIONS]),
-         ww=safe(a[ix.WASTEWEIGHT]),
-         cpp=safe(a[ix.COSTPERPORTION]),
-         plannedTotalWeight=safe(a[ix.PLANNED_TOTAL_WEIGHT]),
-         plannedTotalCost=safe(a[ix.PLANNED_TOTAL_COST]),
-         actualTotalWeight=safe(a[ix.ACTUAL_TOTAL_WEIGHT]),
-         actualTotalCost=safe(a[ix.ACTUAL_TOTAL_COST]);
+  for(let fi=0;fi<files.length;fi++){
+   const f=files[fi];
+   setStatus(10+Math.round(70*fi/files.length),'Luetaan '+f.name+'…');
 
-   // SETMENU on suunnitelman ja toteuman kg/€-lukujen auktoritatiivinen taso.
-   if(reportLevel==='SETMENU'){
+   const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false,dense:true}),
+         ws=wb.Sheets[wb.SheetNames[0]],
+         rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+   if(!rows.length)continue;
+
+   const h=rows[0].map(norm),
+         ix=Object.fromEntries(h.map((x,i)=>[x.toUpperCase(),i])),
+         isPurchase=ix.PURCHASE_DATE!==undefined&&ix.COSTCENTERNAME!==undefined&&ix.NET_AMOUNT!==undefined,
+         isFoodflow=ix.REPORT_LEVEL!==undefined&&ix.MENUPLANDATE!==undefined&&ix.COSTCENTERNAME!==undefined;
+
+   if(isPurchase&&!isFoodflow){
+    if(ix.ITEMGROUP===undefined||ix.ARTICLENAME===undefined)
+      throw new Error(f.name+': ostoaineistosta puuttuu ITEMGROUP tai ARTICLENAME');
+
+    for(let r=1;r<rows.length;r++){
+     const a=rows[r],
+           site=norm(a[ix.COSTCENTERNAME]),
+           month=monthKey(a[ix.PURCHASE_DATE]),
+           amount=safe(a[ix.NET_AMOUNT]),
+           itemGroup=norm(a[ix.ITEMGROUP])||'Määrittelemätön tuoteryhmä',
+           articleName=norm(a[ix.ARTICLENAME])||'Nimetön artikkeli',
+           articleId=ix.ARTICLEID===undefined?'':norm(a[ix.ARTICLEID]);
+     if(!site||!month)continue;
+
+     const sm=site+'|'+month;
+     purchaseBySiteMonth.set(sm,(purchaseBySiteMonth.get(sm)||0)+amount);
+
+     const dk=site+'|'+month+'|'+itemGroup+'|'+(articleId||articleName),
+           prev=purchaseDetailMap.get(dk)||{site,month,itemGroup,articleName,articleId,amount:0};
+     prev.amount+=amount;
+     purchaseDetailMap.set(dk,prev);
+    }
+    continue;
+   }
+
+   if(!isFoodflow)throw new Error(f.name+': tiedostoa ei tunnistettu FoodFlow- eikä ostoaineistoksi.');
+
+   for(const c of ['COSTCENTERNAME','MENUPLANDATE','SETMENUNAME','ITEMNAME','REPORT_LEVEL','ORIGINAL_PLANNEDPORTIONS','ORIGINAL_PLANNEDWEIGHT','COS_ITEM','PRODUCEDPORTIONS','TOTALWEIGHT','WASTEPORTIONS','WASTEWEIGHT','COSTPERPORTION','PLANNED_TOTAL_WEIGHT','PLANNED_TOTAL_COST','ACTUAL_TOTAL_WEIGHT','ACTUAL_TOTAL_COST'])
+     if(ix[c]===undefined)throw new Error(f.name+': aineistosta puuttuu '+c);
+
+   for(let r=1;r<rows.length;r++){
+    const a=rows[r],
+          site=norm(a[ix.COSTCENTERNAME]),
+          dateRaw=a[ix.MENUPLANDATE],
+          month=monthKey(dateRaw),
+          date=dateKey(dateRaw),
+          menu=norm(a[ix.SETMENUNAME]),
+          recipe=norm(a[ix.ITEMNAME]),
+          setmenuId=ix.SETMENUID===undefined?'':norm(a[ix.SETMENUID]),
+          reportLevel=norm(a[ix.REPORT_LEVEL]).toUpperCase();
+    if(!site||!month||!date)continue;
+
+    const planPort=safe(a[ix.ORIGINAL_PLANNEDPORTIONS]),
+          planW=safe(a[ix.ORIGINAL_PLANNEDWEIGHT]),
+          cosItem=safe(a[ix.COS_ITEM]),
+          prod=safe(a[ix.PRODUCEDPORTIONS]),
+          tw=safe(a[ix.TOTALWEIGHT]),
+          wp=safe(a[ix.WASTEPORTIONS]),
+          ww=safe(a[ix.WASTEWEIGHT]),
+          cpp=safe(a[ix.COSTPERPORTION]),
+          plannedTotalWeight=safe(a[ix.PLANNED_TOTAL_WEIGHT]),
+          plannedTotalCost=safe(a[ix.PLANNED_TOTAL_COST]),
+          actualTotalWeight=safe(a[ix.ACTUAL_TOTAL_WEIGHT]),
+          actualTotalCost=safe(a[ix.ACTUAL_TOTAL_COST]);
+
+    if(reportLevel==='SETMENU'){
      const smKey=site+'|'+date+'|'+(setmenuId||menu);
      setmenuByKey.set(smKey,{
        site,month,date,menu,setmenuId,
-       plannedKg:plannedTotalWeight,
-       planCost:plannedTotalCost,
-       actualKg:actualTotalWeight,
-       actualCost:actualTotalCost,
+       plannedKg:plannedTotalWeight,planCost:plannedTotalCost,
+       actualKg:actualTotalWeight,actualCost:actualTotalCost,
        planPort,prod
      });
-
-     // Leipäpöydän ruokailijamäärä otetaan samalla tavalla SETMENU-riviltä.
      if(menu.toLowerCase().includes('leipäpöytä')){
-       breadBySiteDate.set(site+'|'+date,{site,month,date,menu,planPort,prod});
+      breadBySiteDate.set(site+'|'+date,{site,month,date,menu,planPort,prod});
      }
      continue;
-   }
+    }
 
-   // RECIPE-rivit säilytetään Suunnitelma-sivun rinnakkaista reseptitason laskentaa varten.
-   if(reportLevel==='RECIPE'){
+    if(reportLevel==='RECIPE'){
      recipeRows.push({
        site,month,date,menu,recipe,planPort,prod,
-       plannedKg:plannedTotalWeight,
-       planCost:plannedTotalCost,
-       actualKg:actualTotalWeight,
-       actualCost:actualTotalCost
+       plannedKg:plannedTotalWeight,planCost:plannedTotalCost,
+       actualKg:actualTotalWeight,actualCost:actualTotalCost
      });
      continue;
+    }
+
+    if(reportLevel!=='DETAIL')continue;
+    if(!(planPort>0||prod>0||tw>0||wp>0||ww>0||plannedTotalWeight>0||plannedTotalCost>0||actualTotalWeight>0||actualTotalCost>0))continue;
+
+    raw.push({
+      site,month,date,menu,recipe,planPort,planW,cosItem,
+      plannedKg:plannedTotalWeight,planCost:plannedTotalCost,prod,
+      actualKg:actualTotalWeight,actualCost:actualTotalCost,
+      wasteKg:ww>0?ww:0,wasteCost:wp>0?wp*cpp:0
+    });
    }
-
-   // DETAIL-rivit muodostavat vaihtoehtoisen yhteenvedon ja tarkemman ruoka-/reseptierittelyn.
-   // Myös DETAIL-tason kg ja € luetaan samoista valmiiksi lasketuista TOTAL-kentistä.
-   if(reportLevel!=='DETAIL')continue;
-   if(!(planPort>0||prod>0||tw>0||wp>0||ww>0||plannedTotalWeight>0||plannedTotalCost>0||actualTotalWeight>0||actualTotalCost>0))continue;
-
-   raw.push({
-     site,month,date,menu,recipe,planPort,planW,cosItem,
-     plannedKg:plannedTotalWeight,
-     planCost:plannedTotalCost,
-     prod,
-     actualKg:actualTotalWeight,
-     actualCost:actualTotalCost,
-     wasteKg:ww>0?ww:0,
-     wasteCost:wp>0?wp*cpp:0
-   });
   }
+
   if(!setmenuByKey.size)throw new Error('Hyväksyttäviä REPORT_LEVEL = SETMENU -rivejä ei löytynyt.');
-  const sites=[...new Set([...raw.map(x=>x.site),...recipeRows.map(x=>x.site),...[...setmenuByKey.values()].map(x=>x.site),...[...breadBySiteDate.values()].map(x=>x.site)])].sort((a,b)=>a.localeCompare(b,'fi'));
+
+  const sites=[...new Set([
+    ...raw.map(x=>x.site),
+    ...recipeRows.map(x=>x.site),
+    ...[...setmenuByKey.values()].map(x=>x.site),
+    ...[...breadBySiteDate.values()].map(x=>x.site),
+    ...[...purchaseBySiteMonth.keys()].map(k=>k.slice(0,k.lastIndexOf('|')))
+  ])].sort((a,b)=>a.localeCompare(b,'fi'));
+
   $('siteSelect').innerHTML=sites.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
   $('siteRow').classList.toggle('hidden',sites.length<=1);
   $('app').classList.remove('hidden');
-  setStatus(100,`${f.name} · ${setmenuByKey.size.toLocaleString('fi-FI')} SETMENU-riviä · ${raw.length.toLocaleString('fi-FI')} DETAIL-riviä · ${recipeRows.length.toLocaleString('fi-FI')} RECIPE-riviä · ${breadBySiteDate.size.toLocaleString('fi-FI')} Leipäpöytä-päivää · ${sites.length} toimipaikkaa`);
+
+  setStatus(100,
+   `${files.length} tiedostoa · ${setmenuByKey.size.toLocaleString('fi-FI')} SETMENU-riviä · `+
+   `${raw.length.toLocaleString('fi-FI')} DETAIL-riviä · ${recipeRows.length.toLocaleString('fi-FI')} RECIPE-riviä · `+
+   `${breadBySiteDate.size.toLocaleString('fi-FI')} Leipäpöytä-päivää · `+
+   `${purchaseDetailMap.size.toLocaleString('fi-FI')} ostojen tuoteryhmä/artikkeli-summaa · ${sites.length} toimipaikkaa`);
+
   prepare();
  }catch(err){console.error(err);setStatus(0,'Virhe: '+err.message)}
 };
@@ -356,7 +440,7 @@ function aggregateLevel(totalData,detailWaste,breadData){
 
  // Valitun REPORT_LEVEL-tason kg/€ valmiiksi lasketuista TOTAL-kentistä.
  for(const x of totalData){
-  const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
+  const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0,purchases:0};
   d.planKg+=x.plannedKg||0;
   d.planCost+=x.planCost||0;
   d.actualKg+=x.actualKg||0;
@@ -366,7 +450,7 @@ function aggregateLevel(totalData,detailWaste,breadData){
 
  // Hävikki pidetään samana riippumatta yhteenvedon laskentatasosta.
  for(const x of detailWaste){
-  const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
+  const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0,purchases:0};
   d.wasteKg+=x.wasteKg||0;
   d.wasteCost+=x.wasteCost||0;
   m.set(x.month,d);
@@ -374,12 +458,20 @@ function aggregateLevel(totalData,detailWaste,breadData){
 
  // Leipäpöytä on aina SETMENU-tason päiväkohtainen tieto.
  for(const b of breadData){
-  const d=m.get(b.month)||{month:b.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
+  const d=m.get(b.month)||{month:b.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0,purchases:0};
   d.planBread+=b.planPort||0;
   d.actualBread+=b.prod||0;
   m.set(b.month,d);
  }
 
+ const site=$('siteSelect').value;
+ for(const [k,amount] of purchaseBySiteMonth){
+  const cut=k.lastIndexOf('|'),s=k.slice(0,cut),month=k.slice(cut+1);
+  if(s!==site)continue;
+  const d=m.get(month)||{month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0,purchases:0};
+  d.purchases=amount||0;
+  m.set(month,d);
+ }
  return [...m.values()].sort((a,b)=>a.month.localeCompare(b.month));
 }
 
@@ -395,7 +487,8 @@ function prepare(){
  const allMonthKeys=[...new Set([
    ...setmenuMonths.map(x=>x.month),
    ...detailMonths.map(x=>x.month),
-   ...recipeRows.filter(x=>x.site===site).map(x=>x.month)
+   ...recipeRows.filter(x=>x.site===site).map(x=>x.month),
+   ...[...purchaseBySiteMonth.keys()].filter(k=>k.startsWith(site+'|')).map(k=>k.slice(k.lastIndexOf('|')+1))
  ])].sort();
 
  planningMonth=allMonthKeys.at(-1)||'';
@@ -448,7 +541,7 @@ function render(){
    score('Ruoan kustannus: suunnitelma vs toteuma',costDiff,'Kustannussuunnittelu osui hyvin toteumaan.','Suunnitellun ja toteutuneen kustannuksen ero on suuri.')+
    score('Hävikkitaso',hp.actualKg?hp.wasteKg/hp.actualKg:null,'Hävikin osuus tuotetuista kiloista on matala.','Hävikin osuus tuotetuista kiloista on korkea.');
 
- renderMonths();renderBasic();renderTrend();
+ renderMonths();renderBasic();renderPurchases();renderTrend();
 }
 function monthEmoji(v,isPlanning=false){
  if(isPlanning)return['🕒','Kuukausi kesken'];
@@ -489,54 +582,15 @@ function renderMonths(){
     <span class="mScore"><span class="emo">${wasteS[0]}</span> Hävikki: ${wasteS[1]}</span>
    </div>
 
-   <div class="monthGrid">
-    <div class="mini">
-      <div class="k">Suunnitelma</div>
-      <div class="dual">
-        <div><div class="dualVal">${num.format(m.planKg)} kg</div><div class="dualLbl">kg</div></div>
-        <div><div class="dualVal">${euro.format(m.planCost)}</div><div class="dualLbl">kustannus</div></div>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="k">Toteuma</div>
-      <div class="dual">
-        <div><div class="dualVal">${num.format(m.actualKg)} kg</div><div class="dualLbl">kg</div></div>
-        <div><div class="dualVal">${euro.format(m.actualCost)}</div><div class="dualLbl">kustannus</div></div>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="k">Suunnitelma → toteuma</div>
-      <div class="dual">
-        <div><div class="dualVal">${kgVar==null?'–':pct.format(kgVar)}</div><div class="dualLbl">kg-ero</div></div>
-        <div><div class="dualVal">${costVar==null?'–':pct.format(costVar)}</div><div class="dualLbl">kustannusero</div></div>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="k">Hävikki</div>
-      <div class="dual">
-        <div><div class="dualVal">${num.format(m.wasteKg)} kg</div><div class="dualLbl">kg</div></div>
-        <div><div class="dualVal">${euro.format(m.wasteCost)}</div><div class="dualLbl">kustannus</div></div>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="k">Annoksen keskikustannus</div>
-      <div class="dual">
-        <div><div class="dualVal">${planAvg==null?'–':euro.format(planAvg)}</div><div class="dualLbl">suunnitelma</div></div>
-        <div><div class="dualVal">${actualAvg==null?'–':euro.format(actualAvg)}</div><div class="dualLbl">toteuma</div></div>
-      </div>
-    </div>
-
-    <div class="mini">
-      <div class="k">Leipäpöytä – kävijämäärä</div>
-      <div class="dual">
-        <div><div class="dualVal">${num.format(m.planBread)}</div><div class="dualLbl">suunnitelma</div></div>
-        <div><div class="dualVal">${num.format(m.actualBread)}</div><div class="dualLbl">toteuma</div></div>
-      </div>
-    </div>
+   <div class="monthGridTop">
+    <div class="mini"><div class="k">Suunnitelma</div><div class="dual"><div><div class="dualVal">${num.format(m.planKg)} kg</div><div class="dualLbl">kg</div></div><div><div class="dualVal">${euro.format(m.planCost)}</div><div class="dualLbl">€</div></div></div></div>
+    <div class="mini"><div class="k">Toteuma</div><div class="dual"><div><div class="dualVal">${num.format(m.actualKg)} kg</div><div class="dualLbl">kg</div></div><div><div class="dualVal">${euro.format(m.actualCost)}</div><div class="dualLbl">€</div></div></div></div>
+    <div class="mini"><div class="k">Ostot</div><div class="dual"><div><div class="dualVal">${euro.format(m.purchases||0)}</div><div class="dualLbl">NET_AMOUNT</div></div><div><div class="dualVal">${m.purchases?'Ostot':'ei aineistoa'}</div><div class="dualLbl">${esc(monthName(m.month))}</div></div></div></div>
+   </div>
+   <div class="monthGridBottom">
+    <div class="mini"><div class="k">Annoskustannus</div><div class="dual"><div><div class="dualVal">${planAvg==null?'–':euro.format(planAvg)}</div><div class="dualLbl">plan</div></div><div><div class="dualVal">${actualAvg==null?'–':euro.format(actualAvg)}</div><div class="dualLbl">actual</div></div></div></div>
+    <div class="mini"><div class="k">Hävikki</div><div class="dual"><div><div class="dualVal">${num.format(m.wasteKg)} kg</div><div class="dualLbl">kg</div></div><div><div class="dualVal">${euro.format(m.wasteCost)}</div><div class="dualLbl">€</div></div></div></div>
+    <div class="mini"><div class="k">Leipäpöytä</div><div class="dual"><div><div class="dualVal">${num.format(m.planBread)}</div><div class="dualLbl">plan</div></div><div><div class="dualVal">${num.format(m.actualBread)}</div><div class="dualLbl">actual</div></div></div></div>
    </div>
   </div>`
  }).join('');
@@ -926,6 +980,93 @@ function renderBasic(){
    </div>`;
  }).join('');
 }
+
+
+function renderPurchases(){
+ if(!$('purchaseGroups'))return;
+
+ const site=$('siteSelect').value,
+       search=norm($('purchaseSearch').value).toLowerCase(),
+       rows=[...purchaseDetailMap.values()].filter(x=>x.site===site),
+       monthsMap=new Map();
+
+ for(const x of rows){
+  if(search && !x.itemGroup.toLowerCase().includes(search) && !x.articleName.toLowerCase().includes(search))continue;
+
+  const mm=monthsMap.get(x.month)||new Map(),
+        gg=mm.get(x.itemGroup)||{name:x.itemGroup,total:0,articles:new Map()};
+  gg.total+=x.amount||0;
+
+  const ak=x.articleId||x.articleName,
+        aa=gg.articles.get(ak)||{name:x.articleName,id:x.articleId,total:0};
+  aa.total+=x.amount||0;
+  gg.articles.set(ak,aa);
+  mm.set(x.itemGroup,gg);
+  monthsMap.set(x.month,mm);
+ }
+
+ let total=0,groupCount=0,articleCount=0;
+ for(const [,gm] of monthsMap){
+  for(const [,g] of gm){total+=g.total;groupCount++;articleCount+=g.articles.size}
+ }
+
+ $('purchaseSummary').innerHTML=
+  metric('Ostot',euro.format(total),'NET_AMOUNT · valittu toimipaikka','info')+
+  metric('ITEMGROUP-ryhmiä',num.format(groupCount),'kuukausittaiset ryhmät','info')+
+  metric('Artikkeleita',num.format(articleCount),'ARTICLENAME-taso','info');
+
+ if(!monthsMap.size){
+  $('purchaseGroups').innerHTML='<div class="sectionNote" style="margin-top:12px">Valitulle toimipaikalle ei löytynyt ostotietoja.</div>';
+  return;
+ }
+
+ $('purchaseGroups').innerHTML=[...monthsMap.keys()].sort((a,b)=>b.localeCompare(a)).map(month=>{
+  const groups=[...monthsMap.get(month).values()].sort((a,b)=>b.total-a.total),
+        monthTotal=groups.reduce((s,g)=>s+g.total,0);
+
+  const groupHtml=groups.map(g=>{
+   const articles=[...g.articles.values()].sort((a,b)=>b.total-a.total),
+         share=monthTotal?g.total/monthTotal:null,
+         articleRows=articles.map(a=>`
+          <tr>
+           <td>${esc(a.name)}</td>
+           <td>${esc(a.id||'')}</td>
+           <td class="num">${euro.format(a.total)}</td>
+           <td class="num">${g.total?pct.format(a.total/g.total):'–'}</td>
+          </tr>`).join('');
+
+   return`<div class="purchaseGroup" data-purchase-group>
+    <button class="purchaseGroupBtn" type="button" onclick="this.parentElement.classList.toggle('open')">
+     <div><div class="purchaseGroupName">${esc(g.name)}</div><div class="dayMeta">${articles.length} artikkelia</div></div>
+     <div><div class="mKey">Ostot</div><div class="mVal">${euro.format(g.total)}</div></div>
+     <div><div class="mKey">Osuus kk ostoista</div><div class="mVal">${share==null?'–':pct.format(share)}</div></div>
+     <div class="purchaseChevron">▶</div>
+    </button>
+    <div class="purchaseArticles">
+     <div class="tablewrap" style="margin:0;border:0;border-radius:0;max-height:none">
+      <table>
+       <thead><tr><th>ARTICLENAME</th><th>ARTICLEID</th><th class="num">Ostot</th><th class="num">Osuus ryhmästä</th></tr></thead>
+       <tbody>${articleRows}</tbody>
+      </table>
+     </div>
+    </div>
+   </div>`;
+  }).join('');
+
+  return`<div class="purchaseMonth">
+   <div class="purchaseMonthHead">
+    <div class="purchaseMonthTitle">${esc(monthName(month))}</div>
+    <div class="purchaseMonthTotal">${euro.format(monthTotal)}</div>
+   </div>
+   <div>${groupHtml}</div>
+  </div>`;
+ }).join('');
+}
+
+$('purchaseSearch').oninput=renderPurchases;
+$('purchaseExpandAll').onclick=()=>document.querySelectorAll('[data-purchase-group]').forEach(x=>x.classList.add('open'));
+$('purchaseCollapseAll').onclick=()=>document.querySelectorAll('[data-purchase-group]').forEach(x=>x.classList.remove('open'));
+
 
 function renderTrend(){
  const trendMonths=setmenuMonths;
