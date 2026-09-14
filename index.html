@@ -71,7 +71,7 @@ main{max-width:1500px;margin:-36px auto 0;padding:0 20px 40px}
 <div class="logicBox"><b>Suunnitelmassa Leipäpöytä kertoo odotetun ruokailijamäärän</b><span>Ruokailijamäärä kertoo, kuinka monelle ruokaa on suunniteltu tai kuinka monelle sitä on valmistettu. Päivän määrä huomioidaan vain kerran.</span></div>
 <div class="logicBox"><b>Toteumassa Leipäpöytä kertoo toteutuneen ruokailijamäärän</b><span>Toteutunut hinta / ruokailija kertoo, paljonko toteutuneet raaka-aineet maksoivat yhtä toteutunutta ruokailijaa kohti.</span></div>
 </div>
-<div class="sectionNote" style="margin-top:9px"><strong>Ruokamäärät ja kustannukset:</strong> luvut lasketaan ruokalajien tiedoista. Päivän yhteenvetotietoa ei lasketa niihin uudelleen. Viimeisin aineistossa oleva kuukausi on aina suunnittelukuukausi, vaikka siihen olisi jo kertynyt toteumaa.</div>
+<div class="sectionNote" style="margin-top:9px"><strong>Ruokamäärät ja kustannukset:</strong> suunnitelman ja toteuman kg- ja euroluvut otetaan suoraan SETMENU-tason valmiiksi lasketuista kokonaisluvuista. Reseptirivejä käytetään edelleen Päivien tiedot -sivun tarkempaan erittelyyn.</div>
 </div>
 </section>
 
@@ -136,7 +136,7 @@ const pct=new Intl.NumberFormat('fi-FI',{style:'percent',maximumFractionDigits:1
 const norm=v=>v==null?'':String(v).replace(/\s+/g,' ').trim();
 const safe=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
 const esc=s=>norm(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-let raw=[],breadBySiteDate=new Map(),months=[],planningMonth='',charts={};
+let raw=[],setmenuByKey=new Map(),breadBySiteDate=new Map(),months=[],planningMonth='',charts={};
 
 function dateParts(v){
  if(typeof v==='number'&&Number.isFinite(v)){
@@ -162,8 +162,8 @@ $('file').onchange=async e=>{
   setStatus(15,'Luetaan '+f.name+'…');
   const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false,dense:true}),ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
   const h=rows[0].map(norm),ix=Object.fromEntries(h.map((x,i)=>[x.toUpperCase(),i]));
-  for(const c of ['COSTCENTERNAME','MENUPLANDATE','SETMENUNAME','ITEMNAME','REPORT_LEVEL','ORIGINAL_PLANNEDPORTIONS','ORIGINAL_PLANNEDWEIGHT','COS_ITEM','PRODUCEDPORTIONS','TOTALWEIGHT','WASTEPORTIONS','WASTEWEIGHT','COSTPERPORTION'])if(ix[c]===undefined)throw new Error('Aineistosta puuttuu '+c);
-  raw=[];breadBySiteDate=new Map();
+  for(const c of ['COSTCENTERNAME','MENUPLANDATE','SETMENUNAME','ITEMNAME','REPORT_LEVEL','ORIGINAL_PLANNEDPORTIONS','ORIGINAL_PLANNEDWEIGHT','COS_ITEM','PRODUCEDPORTIONS','TOTALWEIGHT','WASTEPORTIONS','WASTEWEIGHT','COSTPERPORTION','PLANNED_TOTAL_WEIGHT','PLANNED_TOTAL_COST','ACTUAL_TOTAL_WEIGHT','ACTUAL_TOTAL_COST'])if(ix[c]===undefined)throw new Error('Aineistosta puuttuu '+c);
+  raw=[];setmenuByKey=new Map();breadBySiteDate=new Map();
   for(let r=1;r<rows.length;r++){
    const a=rows[r],
          site=norm(a[ix.COSTCENTERNAME]),
@@ -172,6 +172,7 @@ $('file').onchange=async e=>{
          date=dateKey(dateRaw),
          menu=norm(a[ix.SETMENUNAME]),
          recipe=norm(a[ix.ITEMNAME]),
+         setmenuId=ix.SETMENUID===undefined?'':norm(a[ix.SETMENUID]),
          reportLevel=norm(a[ix.REPORT_LEVEL]).toUpperCase();
    if(!site||!month||!date)continue;
 
@@ -182,20 +183,33 @@ $('file').onchange=async e=>{
          tw=safe(a[ix.TOTALWEIGHT]),
          wp=safe(a[ix.WASTEPORTIONS]),
          ww=safe(a[ix.WASTEWEIGHT]),
-         cpp=safe(a[ix.COSTPERPORTION]);
+         cpp=safe(a[ix.COSTPERPORTION]),
+         plannedTotalWeight=safe(a[ix.PLANNED_TOTAL_WEIGHT]),
+         plannedTotalCost=safe(a[ix.PLANNED_TOTAL_COST]),
+         actualTotalWeight=safe(a[ix.ACTUAL_TOTAL_WEIGHT]),
+         actualTotalCost=safe(a[ix.ACTUAL_TOTAL_COST]);
 
-   // Leipäpöydän päiväkohtainen koontirivi:
-   // REPORT_LEVEL=SETMENU sisältää yhden suunnitellun ja toteutuneen kävijämäärän per päivä.
-   if(reportLevel==='SETMENU' && menu.toLowerCase().includes('leipäpöytä')){
-     // Auktoritatiivinen yksi Leipäpöytä-rivi per toimipaikka + päivä.
-     // Tallennetaan se jo sisäänluvussa päiväavaimella, jotta kaikki kuukaudet
-     // säilyvät varmasti mukana myöhemmissä koonneissa.
-     breadBySiteDate.set(site+'|'+date,{site,month,date,menu,planPort,prod});
+   // SETMENU on suunnitelman ja toteuman kg/€-lukujen auktoritatiivinen taso.
+   if(reportLevel==='SETMENU'){
+     const smKey=site+'|'+date+'|'+(setmenuId||menu);
+     setmenuByKey.set(smKey,{
+       site,month,date,menu,setmenuId,
+       plannedKg:plannedTotalWeight,
+       planCost:plannedTotalCost,
+       actualKg:actualTotalWeight,
+       actualCost:actualTotalCost,
+       planPort,prod
+     });
+
+     // Leipäpöydän ruokailijamäärä otetaan samalla tavalla SETMENU-riviltä.
+     if(menu.toLowerCase().includes('leipäpöytä')){
+       breadBySiteDate.set(site+'|'+date,{site,month,date,menu,planPort,prod});
+     }
      continue;
    }
 
-   // Kg, eurot, hävikki sekä Päivien tiedotin reseptirakenne lasketaan vain DETAIL-riveistä.
-   // Näin SETMENU-koontirivejä ei lasketa toiseen kertaan mukaan.
+   // DETAIL-rivit säilytetään Päivien tiedot -sivun ruoka-/reseptierittelyä
+   // sekä hävikin nykyistä laskentaa varten.
    if(reportLevel!=='DETAIL')continue;
    if(!(planPort>0||prod>0||tw>0||wp>0||ww>0))continue;
 
@@ -210,37 +224,43 @@ $('file').onchange=async e=>{
      wasteCost:wp>0?wp*cpp:0
    });
   }
-  if(!raw.length)throw new Error('Hyväksyttäviä suunnittelu- tai toteumarivejä ei löytynyt.');
-  const sites=[...new Set([...raw.map(x=>x.site),...[...breadBySiteDate.values()].map(x=>x.site)])].sort((a,b)=>a.localeCompare(b,'fi'));
+  if(!setmenuByKey.size)throw new Error('Hyväksyttäviä REPORT_LEVEL = SETMENU -rivejä ei löytynyt.');
+  const sites=[...new Set([...raw.map(x=>x.site),...[...setmenuByKey.values()].map(x=>x.site),...[...breadBySiteDate.values()].map(x=>x.site)])].sort((a,b)=>a.localeCompare(b,'fi'));
   $('siteSelect').innerHTML=sites.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
   $('siteRow').classList.toggle('hidden',sites.length<=1);
   $('app').classList.remove('hidden');
-  setStatus(100,`${f.name} · ${raw.length.toLocaleString('fi-FI')} DETAIL-riviä · ${breadBySiteDate.size.toLocaleString('fi-FI')} Leipäpöytä SETMENU-päivää · ${sites.length} toimipaikkaa`);
+  setStatus(100,`${f.name} · ${setmenuByKey.size.toLocaleString('fi-FI')} SETMENU-riviä · ${raw.length.toLocaleString('fi-FI')} DETAIL-riviä · ${breadBySiteDate.size.toLocaleString('fi-FI')} Leipäpöytä-päivää · ${sites.length} toimipaikkaa`);
   prepare();
  }catch(err){console.error(err);setStatus(0,'Virhe: '+err.message)}
 };
 $('siteSelect').onchange=prepare;
 
 function prepare(){
- const site=$('siteSelect').value||raw[0]?.site||[...breadBySiteDate.values()][0]?.site;
- const data=raw.filter(x=>x.site===site),
+ const site=$('siteSelect').value||[...setmenuByKey.values()][0]?.site||raw[0]?.site||[...breadBySiteDate.values()][0]?.site;
+ const totalData=[...setmenuByKey.values()].filter(x=>x.site===site),
+       detailData=raw.filter(x=>x.site===site),
        breadData=[...breadBySiteDate.values()].filter(x=>x.site===site),
        m=new Map();
 
- // Tavalliset laskelmat DETAIL-riveistä.
- for(const x of data){
+ // Suunnitelman ja toteuman kg/€ luetaan valmiiksi lasketuilta SETMENU-riveiltä.
+ for(const x of totalData){
   const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
   d.planKg+=x.plannedKg;
   d.planCost+=x.planCost;
   d.actualKg+=x.actualKg;
   d.actualCost+=x.actualCost;
-  d.wasteKg+=x.wasteKg;
-  d.wasteCost+=x.wasteCost;
-  m.set(x.month,d)
+  m.set(x.month,d);
  }
 
- // Leipäpöytä REPORT_LEVEL=SETMENU -riveiltä.
- // breadBySiteDate takaa jo yhden auktoritatiivisen rivin per toimipaikka + päivä.
+ // Hävikki säilyy DETAIL-rivien nykyisellä logiikalla.
+ for(const x of detailData){
+  const d=m.get(x.month)||{month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
+  d.wasteKg+=x.wasteKg;
+  d.wasteCost+=x.wasteCost;
+  m.set(x.month,d);
+ }
+
+ // Leipäpöytä SETMENU-riviltä, kerran per toimipaikka + päivä.
  for(const b of breadData){
    const d=m.get(b.month)||{month:b.month,planKg:0,planCost:0,actualKg:0,actualCost:0,wasteKg:0,wasteCost:0,planBread:0,actualBread:0};
    d.planBread+=b.planPort||0;
@@ -408,13 +428,14 @@ function levelBadge(value,baseline){
 }
 function renderBasic(){
  if(!planningMonth)return;
- const site=$('siteSelect').value||raw[0]?.site||[...breadBySiteDate.values()][0]?.site,
+ const site=$('siteSelect').value||[...setmenuByKey.values()][0]?.site||raw[0]?.site||[...breadBySiteDate.values()][0]?.site,
        data=raw.filter(x=>x.site===site&&x.month===planningMonth),
+       totalData=[...setmenuByKey.values()].filter(x=>x.site===site&&x.month===planningMonth),
        breadData=[...breadBySiteDate.values()].filter(x=>x.site===site&&x.month===planningMonth);
 
- // Month totals
+ // Kuukauden kokonaisluvut SETMENU-total-kentistä.
  let monthPlanKg=0,monthPlanCost=0,monthBread=0,monthActualKg=0,monthActualCost=0;
- for(const x of data){
+ for(const x of totalData){
    monthPlanKg+=x.plannedKg;monthPlanCost+=x.planCost;
    monthActualKg+=x.actualKg;monthActualCost+=x.actualCost;
  }
@@ -436,14 +457,33 @@ function renderBasic(){
    }
  }
 
- // Day -> menu -> recipe
+ // Päivän kokonaiskg/€ SETMENU-total-kentistä.
+ const totalsByDay=new Map();
+ for(const x of totalData){
+   const d=totalsByDay.get(x.date)||{planKg:0,planCost:0,actualKg:0,actualCost:0};
+   d.planKg+=x.plannedKg;
+   d.planCost+=x.planCost;
+   d.actualKg+=x.actualKg;
+   d.actualCost+=x.actualCost;
+   totalsByDay.set(x.date,d);
+ }
+
  const breadByDay=new Map(breadData.map(x=>[x.date,{plan:x.planPort||0,actual:x.prod||0}]));
  const days=new Map();
+
+ // DETAIL-rivit muodostavat edelleen ruoka- ja reseptierittelyn.
  for(const x of data){
-   const d=days.get(x.date)||{date:x.date,planKg:0,planCost:0,bread:(breadByDay.get(x.date)?.plan||0),actualBread:(breadByDay.get(x.date)?.actual||0),actualKg:0,actualCost:0,hasActual:false,menus:new Map()};
-   d.planKg+=x.plannedKg;d.planCost+=x.planCost;d.actualKg+=x.actualKg;d.actualCost+=x.actualCost;
-   if(x.prod>0||x.actualKg>0)d.hasActual=true;
-   
+   const t=totalsByDay.get(x.date)||{planKg:0,planCost:0,actualKg:0,actualCost:0},
+         b=breadByDay.get(x.date)||{plan:0,actual:0},
+         d=days.get(x.date)||{
+           date:x.date,
+           planKg:t.planKg,planCost:t.planCost,
+           bread:b.plan,actualBread:b.actual,
+           actualKg:t.actualKg,actualCost:t.actualCost,
+           hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
+           menus:new Map()
+         };
+
    const m=d.menus.get(x.menu)||{name:x.menu,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0,recipes:new Map()};
    if(x.planPort>0)m.qtyCandidates.push(x.planPort);
    m.kg+=x.plannedKg;m.cost+=x.planCost;m.actualKg+=x.actualKg;m.actualCost+=x.actualCost;
@@ -452,6 +492,20 @@ function renderBasic(){
    if(x.planPort>0)r.qtyCandidates.push(x.planPort);
    r.kg+=x.plannedKg;r.cost+=x.planCost;r.actualKg+=x.actualKg;r.actualCost+=x.actualCost;
    m.recipes.set(rn,r);d.menus.set(x.menu,m);days.set(x.date,d);
+ }
+
+ // Näytä myös SETMENU-päivä, vaikka DETAIL-rivejä ei jostain syystä olisi.
+ for(const [date,t] of totalsByDay){
+   if(days.has(date))continue;
+   const b=breadByDay.get(date)||{plan:0,actual:0};
+   days.set(date,{
+     date,
+     planKg:t.planKg,planCost:t.planCost,
+     bread:b.plan,actualBread:b.actual,
+     actualKg:t.actualKg,actualCost:t.actualCost,
+     hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
+     menus:new Map()
+   });
  }
  const ordered=[...days.values()].sort((a,b)=>a.date.localeCompare(b.date));
 
