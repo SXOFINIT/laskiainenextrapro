@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LaskiainenExtraPro</title>
+<title>Ruokatuotannon seuranta v5.10</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -74,10 +74,32 @@ main{max-width:1500px;margin:-36px auto 0;padding:0 20px 40px}
 .monthGridTop,.monthGridBottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .monthGridBottom{margin-top:8px}
 @media(max-width:900px){.monthGridTop,.monthGridBottom{grid-template-columns:1fr}}
+
+.filterPanel{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:12px 14px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:14px;margin-top:12px}
+.filterField{display:flex;flex-direction:column;gap:5px;min-width:165px}
+.filterField.wide{min-width:220px}
+.filterField label{font-size:11px;font-weight:850;color:#475467}
+.filterField select,.filterField input{min-height:40px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;padding:8px 11px;font-weight:700;color:#344054;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.filterField select:focus,.filterField input:focus{outline:2px solid #84adff;border-color:#84adff}
+.filterHint{font-size:11px;color:#667085;align-self:center;max-width:420px}
+.summaryCollapse{margin-top:12px;border:1px solid #e4e7ec;border-radius:14px;background:#fff;overflow:hidden}
+.summaryCollapse summary{cursor:pointer;list-style:none;padding:13px 15px;font-weight:900;display:flex;justify-content:space-between;align-items:center;background:#f8fafc}
+.summaryCollapse summary::-webkit-details-marker{display:none}
+.summaryCollapse summary:after{content:"▶";font-size:11px;color:#667085;transition:.15s}
+.summaryCollapse[open] summary:after{transform:rotate(90deg)}
+.summaryCollapseBody{padding:12px 14px}
+.dailyFilterPanel{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:10px;margin-top:12px;padding:13px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:14px}
+.dailyFilterPanel .filterField{min-width:0}
+.statusNoPlan{border-left:5px solid #f04438!important;background:#fff7f6!important}
+.badgeNoPlan{background:#fee4e2;color:#b42318;border:1px solid #fecdca}
+.dailyTargetWrap{display:flex;gap:8px;align-items:center}
+.dailyTargetWrap input{flex:1;min-width:100px}
+@media(max-width:900px){.dailyFilterPanel{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.dailyFilterPanel{grid-template-columns:1fr}.filterPanel{align-items:stretch}.filterField{min-width:100%}}
 </style>
 </head>
 <body>
-<header><div class="headin"><div class="title">Ruokatuotannon seuranta</div><div class="subtitle">Usean kuukauden suunnitelma-, toteuma-, hävikki- ja ostoseuranta FoodFlow- ja ostoaineistoista. Viimeisin aineistossa oleva kuukausi tulkitaan automaattisesti suunnittelukuukaudeksi. Excel-päivämäärät käsitellään suoraan kalenteripäivinä, jotta kuukauden ensimmäinen päivä ei siirry edelliseen kuukauteen.</div></div></header>
+<header><div class="headin"><div class="title">Ruokatuotannon seuranta</div><div class="subtitle">Usean kuukauden suunnitelma-, toteuma-, hävikki- ja ostoseuranta FoodFlow- ja ostoaineistoista. Päivätaso tunnistaa suunnitellut, toteutuneet ja ilman suunnitelmaa tuotetut päivät Leipäpöydän tietojen perusteella. Excel-päivämäärät käsitellään suoraan kalenteripäivinä, jotta kuukauden ensimmäinen päivä ei siirry edelliseen kuukauteen.</div></div></header>
 
 <main>
 <section class="card">
@@ -91,42 +113,44 @@ main{max-width:1500px;margin:-36px auto 0;padding:0 20px 40px}
 <div class="logicBox"><b>Suunnitelmassa Leipäpöytä kertoo odotetun ruokailijamäärän</b><span>Ruokailijamäärä kertoo, kuinka monelle ruokaa on suunniteltu tai kuinka monelle sitä on valmistettu. Päivän määrä huomioidaan vain kerran.</span></div>
 <div class="logicBox"><b>Toteumassa Leipäpöytä kertoo toteutuneen ruokailijamäärän</b><span>Toteutunut hinta / ruokailija kertoo, paljonko toteutuneet raaka-aineet maksoivat yhtä toteutunutta ruokailijaa kohti.</span></div>
 </div>
-<div class="sectionNote" style="margin-top:9px">
-<strong>Kaksi tapaa laskea suunnitelmaa:</strong>
-aineistossa sama suunnitelma voidaan kuvata joko valmiina ruokalistan kokonaisuutena (<code>REPORT_LEVEL = SETMENU</code>)
-tai tarkemmalla ruoka-/reseptitasolla (<code>REPORT_LEVEL = DETAIL / RECIPE</code>).
-Molemmissa tavoissa kg- ja euroluvut luetaan samoista valmiiksi lasketuista kentistä
-(<code>PLANNED_TOTAL_WEIGHT</code>, <code>PLANNED_TOTAL_COST</code>,
-<code>ACTUAL_TOTAL_WEIGHT</code> ja <code>ACTUAL_TOTAL_COST</code>).
-Jos suunnitelma on tehty eri tavalla näillä tasoilla, lopputulos voi poiketa hieman toisistaan.
-Tämä ei välttämättä tarkoita virhettä, vaan eroa siinä, millä tasolla suunnittelu on tehty.
-Kuukauden yhteenveto käyttää oletuksena SETMENU-tasoa, mutta laskentatavan voi vaihtaa DETAIL-tasoon.
+<div class="sectionNote" style="margin-top:10px">
+<strong>Aineiston muodostaminen:</strong> Käytä Dellun <strong>Vie tiedot</strong> -toimintoa aineiston muodostukseen.
+Käytä kyselyitä <code>Laskiainensuunnitelma&amp;toteuma</code> ja <code>Laskiainenostot</code>.
+Käytä haluamaasi aikarajausta.
 </div>
 </div>
 </section>
 
 <div id="app" class="hidden">
-<div class="tabs"><button class="tab active" data-tab="summary">Yhteenveto</button><button class="tab" data-tab="daily">Päivätaso</button><button class="tab" data-tab="basic">Suunnitelma</button><button class="tab" data-tab="purchases">Ostot</button><button class="tab" data-tab="trend">Kehitys</button></div>
+<div class="tabs"><button class="tab active" data-tab="summary">Yhteenveto</button><button class="tab" data-tab="daily">Päivätaso</button><button class="tab" data-tab="purchases">Ostot</button><button class="tab" data-tab="trend">Kehitys</button></div>
 
 <section id="summary" class="panel active">
 <div class="card">
-<div class="sectionTitle">Koko aineiston yhteenveto</div>
-<div class="sectionNote">Aiempien kuukausien luvut sisältävät kaikki kuukaudet ennen viimeisintä aineistokuukautta. Viimeisin kuukausi käsitellään suunnittelukuukautena.</div>
-<div class="siteRow" style="margin-top:12px">
-  <label for="summaryLevel">Yhteenvedon laskentataso</label>
-  <select id="summaryLevel">
-    <option value="SETMENU" selected>SETMENU – oletus</option>
-    <option value="DETAIL">DETAIL – tarkempi taso</option>
-  </select>
-  <span id="summaryLevelInfo" class="sectionNote" style="margin:0">Kg ja € lasketaan REPORT_LEVEL = SETMENU -riveiltä.</span>
+<div class="sectionTitle">Yhteenveto</div>
+<div class="filterPanel">
+  <div class="filterField wide">
+    <label for="summaryLevel">Laskentataso</label>
+    <select id="summaryLevel">
+      <option value="SETMENU" selected>SETMENU – ruokalistan kokonaisuus</option>
+      <option value="DETAIL">DETAIL – tarkempi taso</option>
+    </select>
+  </div>
+  <div id="summaryLevelInfo" class="filterHint">Kg ja € lasketaan REPORT_LEVEL = SETMENU -riveiltä.</div>
 </div>
-<div id="summaryHero" class="hero"></div>
-<div id="scores" class="scoreRow"></div>
+
+<details class="summaryCollapse">
+  <summary>Koko aineiston yhteenveto</summary>
+  <div class="summaryCollapseBody">
+    <div class="sectionNote">Koko aineiston yhteenveto sisältää kaikki valitun toimipaikan aineistossa olevat kuukaudet.</div>
+    <div id="summaryHero" class="hero"></div>
+    <div id="scores" class="scoreRow"></div>
+  </div>
+</details>
 </div>
 
 <div class="card" style="margin-top:13px">
 <div class="sectionTitle">Kuukausittainen yhteenveto</div>
-<div class="sectionNote">Suunnittelukuukausi näytetään ensimmäisenä. Muut kuukaudet uusimmasta vanhimpaan.</div>
+<div class="sectionNote">Kuukaudet näytetään uusimmasta vanhimpaan. Suunnitelma ja toteuma näytetään rinnakkain jokaiselle kuukaudelle.</div>
 <div id="monthCards" class="months"></div>
 </div>
 </section>
@@ -140,70 +164,57 @@ Kaikki aineistossa olevat päivät yhdessä näkymässä. Voit vaihtaa laskennan
 Leipäpöydän ruokailijamäärä tulee aina SETMENU-tasolta.
 </div>
 
-<div class="siteRow" style="margin-top:12px">
-<label for="dailyLevel">Laskentataso</label>
-<select id="dailyLevel">
-<option value="SETMENU" selected>SETMENU – oletus</option>
-<option value="DETAIL">DETAIL – tarkempi taso</option>
-</select>
+<div class="dailyFilterPanel">
+  <div class="filterField">
+    <label for="dailyLevel">Laskentataso</label>
+    <select id="dailyLevel">
+      <option value="SETMENU" selected>SETMENU – ruokalistan kokonaisuus</option>
+      <option value="DETAIL">DETAIL – tarkempi taso</option>
+    </select>
+  </div>
 
-<label for="dailyDate">Päivä</label>
-<select id="dailyDate"><option value="">Kaikki päivät</option></select>
+  <div class="filterField">
+    <label for="dailyMonth">Kuukausi</label>
+    <select id="dailyMonth"><option value="">Kaikki kuukaudet</option></select>
+  </div>
+
+  <div class="filterField">
+    <label for="dailyDate">Päivä</label>
+    <select id="dailyDate"><option value="">Kaikki päivät</option></select>
+  </div>
+
+  <div class="filterField">
+    <label for="dailyStatus">Päivän tila</label>
+    <select id="dailyStatus">
+      <option value="ALL">Kaikki</option>
+      <option value="PLANNED">Suunnitellut</option>
+      <option value="PRODUCED">Toteutuneet</option>
+      <option value="NO_PLAN">Ei suunnitelmaa</option>
+    </select>
+  </div>
+
+  <div class="filterField">
+    <label for="dailyTarget">Tavoiteannoskustannus €</label>
+    <div class="dailyTargetWrap">
+      <input id="dailyTarget" type="number" min="0" step="0.01" placeholder="esim. 3,50">
+    </div>
+  </div>
+
+  <div class="filterField">
+    <label for="dailyTargetFilter">Näytä tavoitteen perusteella</label>
+    <select id="dailyTargetFilter">
+      <option value="ALL">Kaikki</option>
+      <option value="ABOVE">Yli tavoitteen</option>
+      <option value="AT_OR_BELOW">Tavoitteessa tai alle</option>
+    </select>
+  </div>
 </div>
-
-<div class="siteRow" style="margin-top:10px">
-<label for="dailyTarget">Tavoiteannoskustannus €</label>
-<input id="dailyTarget" type="number" min="0" step="0.01" placeholder="esim. 3,50" style="max-width:150px">
-
-<label for="dailyTargetFilter">Näytä</label>
-<select id="dailyTargetFilter">
-<option value="ALL">Kaikki päivät</option>
-<option value="ABOVE">Yli tavoitteen</option>
-<option value="AT_OR_BELOW">Tavoitteessa tai alle</option>
-</select>
-
-<span id="dailyLevelInfo" class="sectionNote" style="margin:0">Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.</span>
-</div>
+<div id="dailyLevelInfo" class="filterHint" style="margin-top:8px">Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä. Päivän tila määräytyy Leipäpöydän suunniteltujen ja tuotettujen ruokailijoiden perusteella.</div>
 
 <div id="dailySummary" style="margin-top:12px"></div>
 <div id="dailyDays" style="margin-top:12px"></div>
 </div>
 </section>
-
-<section id="basic" class="panel">
-<div class="card">
-<div class="sectionTitle">Suunnitelma – suunnittelukuukausi päivä päivältä</div>
-<div class="sectionNote">Tässä näkymässä tarkastellaan viimeisintä eli suunnittelussa olevaa kuukautta. Voit valita, näytetäänkö kg- ja euroluvut SETMENU- vai DETAIL-tasolta. Aluksi näet vain päivätason yhteenvedon. Avaa päivä nähdäksesi sen SETMENUNAME-rivit ja avaa SETMENUNAME nähdäksesi reseptit. Jos päivälle ei vielä ole toteumaa, näytetään suunniteltu hinta / ruokailija. Kun päivä on toteutunut, näytetään toteutunut hinta / ruokailija.</div>
-<div class="siteRow" style="margin-top:12px">
-  <label for="planLevel">Suunnitelman laskentataso</label>
-  <select id="planLevel">
-    <option value="SETMENU" selected>SETMENU – oletus</option>
-    <option value="DETAIL">DETAIL – tarkempi taso</option>
-  </select>
-  <span id="planLevelInfo" class="sectionNote" style="margin:0">Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.</span>
-</div>
-<div class="siteRow" style="margin-top:10px">
-  <label for="planTarget">Tavoiteannoskustannus €</label>
-  <input id="planTarget" type="number" min="0" step="0.01" placeholder="esim. 3,50" style="max-width:150px">
-
-  <label for="planTargetFilter">Näytä</label>
-  <select id="planTargetFilter">
-    <option value="ALL">Kaikki päivät</option>
-    <option value="ABOVE">Yli tavoitteen</option>
-    <option value="AT_OR_BELOW">Tavoitteessa tai alle</option>
-  </select>
-</div>
-<div class="info" style="margin-top:10px"><strong>Navigointi:</strong> päivä → SETMENUNAME → resepti. Kaikki päivät ovat aluksi kiinni, jotta näkymä pysyy kompaktina.</div><div class="costHelp">
-<span><i class="cdot" style="background:#32d583"></i> kustannustaso normaalia alempi / hyvä</span>
-<span><i class="cdot" style="background:#f79009"></i> lähellä normaalia</span>
-<span><i class="cdot" style="background:#f04438"></i> selvästi normaalia korkeampi</span>
-<span><span class="badge badgeProd">Tuotettu</span> päivällä on jo toteumatietoa</span>
-</div>
-<div id="basicMonth" class="basicMonth"></div>
-<div id="basicDays" class="dayList"></div>
-</div>
-</section>
-
 
 <section id="purchases" class="panel">
 <div class="card">
@@ -252,7 +263,7 @@ const pct=new Intl.NumberFormat('fi-FI',{style:'percent',maximumFractionDigits:1
 const norm=v=>v==null?'':String(v).replace(/\s+/g,' ').trim();
 const safe=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
 const esc=s=>norm(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-let raw=[],recipeRows=[],setmenuByKey=new Map(),breadBySiteDate=new Map(),purchaseBySiteMonth=new Map(),purchaseDetailMap=new Map(),months=[],setmenuMonths=[],detailMonths=[],planningMonth='',summaryMode='SETMENU',planMode='SETMENU',dailyMode='SETMENU',charts={};
+let raw=[],recipeRows=[],setmenuByKey=new Map(),breadBySiteDate=new Map(),purchaseBySiteMonth=new Map(),purchaseDetailMap=new Map(),months=[],setmenuMonths=[],detailMonths=[],planningMonth='',summaryMode='SETMENU',dailyMode='SETMENU',charts={};
 
 function dateParts(v){
  if(typeof v==='number'&&Number.isFinite(v)){
@@ -330,6 +341,7 @@ $('file').onchange=async e=>{
           date=dateKey(dateRaw),
           menu=norm(a[ix.SETMENUNAME]),
           recipe=norm(a[ix.ITEMNAME]),
+          itemType=ix.ITEMTYPE===undefined?'':norm(a[ix.ITEMTYPE]).toUpperCase(),
           setmenuId=ix.SETMENUID===undefined?'':norm(a[ix.SETMENUID]),
           reportLevel=norm(a[ix.REPORT_LEVEL]).toUpperCase();
     if(!site||!month||!date)continue;
@@ -374,7 +386,7 @@ $('file').onchange=async e=>{
     if(!(planPort>0||prod>0||tw>0||wp>0||ww>0||plannedTotalWeight>0||plannedTotalCost>0||actualTotalWeight>0||actualTotalCost>0))continue;
 
     raw.push({
-      site,month,date,menu,recipe,planPort,planW,cosItem,
+      site,month,date,menu,recipe,itemType,planPort,planW,cosItem,
       plannedKg:plannedTotalWeight,planCost:plannedTotalCost,prod,
       actualKg:actualTotalWeight,actualCost:actualTotalCost,
       wasteKg:ww>0?ww:0,wasteCost:wp>0?wp*cpp:0
@@ -413,15 +425,6 @@ $('summaryLevel').onchange=e=>{
    :'Kg ja € lasketaan REPORT_LEVEL = SETMENU -riveiltä samoista TOTAL-kentistä.';
  prepare();
 };
-$('planLevel').onchange=e=>{
- planMode=e.target.value;
- $('planLevelInfo').textContent=planMode==='DETAIL'
-   ?'Kg ja € näytetään REPORT_LEVEL = DETAIL -riveiltä samoista TOTAL-kentistä.'
-   :'Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.';
- renderBasic();
-};
-$('planTarget').oninput=renderBasic;
-$('planTargetFilter').onchange=renderBasic;
 
 $('dailyLevel').onchange=e=>{
  dailyMode=e.target.value;
@@ -430,7 +433,9 @@ $('dailyLevel').onchange=e=>{
    :'Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.';
  renderDaily();
 };
+$('dailyMonth').onchange=()=>{refreshDailyDateOptions();renderDaily()};
 $('dailyDate').onchange=renderDaily;
+$('dailyStatus').onchange=renderDaily;
 $('dailyTarget').oninput=renderDaily;
 $('dailyTargetFilter').onchange=renderDaily;
 
@@ -491,7 +496,7 @@ function prepare(){
    ...[...purchaseBySiteMonth.keys()].filter(k=>k.startsWith(site+'|')).map(k=>k.slice(k.lastIndexOf('|')+1))
  ])].sort();
 
- planningMonth=allMonthKeys.at(-1)||'';
+ planningMonth='';
  months=summaryMode==='DETAIL'?detailMonths:setmenuMonths;
  render();
 }
@@ -507,41 +512,26 @@ function score(title,v,goodText,badText){
  return`<div class="score" style="background:${bg}"><div class="scoreEmoji">${emoji}</div><div class="scoreBody"><div class="scoreTitle">${esc(title)}</div><div class="scoreText">${esc(txt)} ${v==null?'':`Poikkeama ${pct.format(v)}.`}</div></div></div>`
 }
 function render(){
- $('summaryLevel').value=summaryMode;
- const past=months.filter(x=>x.month!==planningMonth),plan=months.find(x=>x.month===planningMonth);
- const sum=(arr,k)=>arr.reduce((s,x)=>s+(x[k]||0),0);
- const hp={
-   planKg:sum(past,'planKg'),planCost:sum(past,'planCost'),
-   actualKg:sum(past,'actualKg'),actualCost:sum(past,'actualCost'),
-   wasteKg:sum(past,'wasteKg'),wasteCost:sum(past,'wasteCost'),
-   planBread:sum(past,'planBread'),actualBread:sum(past,'actualBread')
- };
- const all={
-   planCost:sum(months,'planCost'),actualCost:sum(months,'actualCost'),
-   planBread:sum(months,'planBread'),actualBread:sum(months,'actualBread')
- };
- const kgDiff=ratio(hp.actualKg,hp.planKg),
-       costDiff=ratio(hp.actualCost,hp.planCost),
-       allPlanAvg=all.planBread?all.planCost/all.planBread:null,
-       allActualAvg=all.actualBread?all.actualCost/all.actualBread:null;
+ const all=months,
+       sum=k=>all.reduce((a,b)=>a+(b[k]||0),0),
+       planKg=sum('planKg'),planCost=sum('planCost'),
+       actualKg=sum('actualKg'),actualCost=sum('actualCost'),
+       wasteKg=sum('wasteKg'),wasteCost=sum('wasteCost'),
+       planBread=sum('planBread'),actualBread=sum('actualBread'),
+       purchases=sum('purchases'),
+       planAvg=planBread?planCost/planBread:null,
+       actualAvg=actualBread?actualCost/actualBread:null;
 
  $('summaryHero').innerHTML=
-   metricDual('Aiempien kk suunnitelma',num.format(hp.planKg)+' kg','kg',euro.format(hp.planCost),'kustannus')+
-   metricDual('Aiempien kk toteuma',num.format(hp.actualKg)+' kg','kg',euro.format(hp.actualCost),'kustannus',cls(kgDiff))+
-   metricDual('Aiempien kk ero',kgDiff==null?'–':pct.format(kgDiff),'kg',costDiff==null?'–':pct.format(costDiff),'kustannus',cls(Math.max(Math.abs(kgDiff||0),Math.abs(costDiff||0))),`${num.format(hp.actualKg-hp.planKg)} kg · ${euro.format(hp.actualCost-hp.planCost)}`)+
-   metricDual('Aiempien kk hävikki',num.format(hp.wasteKg)+' kg','kg',euro.format(hp.wasteCost),'kustannus',hp.actualKg?cls(hp.wasteKg/hp.actualKg):'info')+
-   metric('Koko aineiston suunniteltu annoskustannus',allPlanAvg==null?'–':euro.format(allPlanAvg),`${euro.format(all.planCost)} ÷ ${num.format(all.planBread)} suunniteltua Leipäpöytä-kävijää`,'info')+
-   metric('Koko aineiston toteutunut annoskustannus',allActualAvg==null?'–':euro.format(allActualAvg),`${euro.format(all.actualCost)} ÷ ${num.format(all.actualBread)} toteutunutta Leipäpöytä-kävijää`,'info')+
-   metricDual('Suunnittelukuukausi – suunnitelma',plan?num.format(plan.planKg)+' kg':'–','kg',plan?euro.format(plan.planCost):'–','kustannus','info')+
-   metricDual('Suunnittelukuukausi – toteuma tähän asti',plan?num.format(plan.actualKg)+' kg':'–','kg',plan?euro.format(plan.actualCost):'–','kustannus',plan&&plan.planKg?cls(plan.actualKg/plan.planKg-1):'info')+
-   metricDual('Suunnittelukuukausi – hävikki',plan?num.format(plan.wasteKg)+' kg':'–','kg',plan?euro.format(plan.wasteCost):'–','kustannus',plan&&plan.actualKg?cls(plan.wasteKg/plan.actualKg):'info');
+   metric('Suunnitelma',`${num.format(planKg)} kg · ${euro.format(planCost)}`,'koko aineisto','info')+
+   metric('Toteuma',`${num.format(actualKg)} kg · ${euro.format(actualCost)}`,'koko aineisto','info')+
+   metric('Ostot',euro.format(purchases),'NET_AMOUNT · koko aineisto','info')+
+   metric('Hävikki',`${num.format(wasteKg)} kg · ${euro.format(wasteCost)}`,'koko aineisto','info')+
+   metric('Annoskustannus',`${planAvg==null?'–':euro.format(planAvg)} / ${actualAvg==null?'–':euro.format(actualAvg)}`,'suunnitelma / toteuma','info')+
+   metric('Ruokailijat',`${num.format(planBread)} / ${num.format(actualBread)}`,'suunnitelma / toteuma','info');
+ $('scores').innerHTML='';
 
- $('scores').innerHTML=
-   score('Tuotannon kg: suunnitelma vs toteuma',kgDiff,'Suunnittelu ja toteuma kohtasivat hyvin.','Suunnitellun ja toteutuneen kilomäärän ero on suuri.')+
-   score('Ruoan kustannus: suunnitelma vs toteuma',costDiff,'Kustannussuunnittelu osui hyvin toteumaan.','Suunnitellun ja toteutuneen kustannuksen ero on suuri.')+
-   score('Hävikkitaso',hp.actualKg?hp.wasteKg/hp.actualKg:null,'Hävikin osuus tuotetuista kiloista on matala.','Hävikin osuus tuotetuista kiloista on korkea.');
-
- renderMonths();renderBasic();renderPurchases();renderTrend();
+ renderMonths();refreshDailyFilters();renderDaily();renderPurchases();renderTrend();
 }
 function monthEmoji(v,isPlanning=false){
  if(isPlanning)return['🕒','Kuukausi kesken'];
@@ -565,15 +555,14 @@ function renderMonths(){
         kgVar=m.planKg?ratio(m.actualKg,m.planKg):null,
         costVar=m.planCost?ratio(m.actualCost,m.planCost):null,
         wasteRate=m.actualKg?m.wasteKg/m.actualKg:null,
-        isPlanning=m.month===planningMonth,
-        kgS=monthEmoji(kgVar,isPlanning),
-        costS=monthEmoji(costVar,isPlanning),
+        kgS=monthEmoji(kgVar,false),
+        costS=monthEmoji(costVar,false),
         wasteS=wasteEmoji(wasteRate);
 
-  return`<div class="monthCard ${isPlanning?'planning':''}">
+  return`<div class="monthCard">
    <div class="monthHead">
     <div class="monthName">${esc(monthName(m.month))}</div>
-    ${isPlanning?'<span class="tag">Suunnittelukuukausi</span>':''}
+    
    </div>
 
    <div class="monthScores">
@@ -613,374 +602,190 @@ function levelBadge(value,baseline){
  return'<span class="badge badgeBad">Korkea kustannustaso</span>';
 }
 
+
+function dailySite(){
+ return $('siteSelect').value||[...setmenuByKey.values()][0]?.site||raw[0]?.site||[...breadBySiteDate.values()][0]?.site;
+}
+
+function refreshDailyFilters(){
+ if(!$('dailyMonth'))return;
+ const site=dailySite(),
+       bread=[...breadBySiteDate.values()].filter(x=>x.site===site),
+       detail=raw.filter(x=>x.site===site),
+       sm=[...setmenuByKey.values()].filter(x=>x.site===site),
+       ms=[...new Set([...bread,...detail,...sm].map(x=>x.month).filter(Boolean))].sort();
+
+ const oldMonth=$('dailyMonth').value;
+ $('dailyMonth').innerHTML='<option value="">Kaikki kuukaudet</option>'+ms.map(m=>`<option value="${esc(m)}">${esc(monthName(m))}</option>`).join('');
+ if(ms.includes(oldMonth))$('dailyMonth').value=oldMonth;
+ refreshDailyDateOptions();
+}
+
+function refreshDailyDateOptions(){
+ if(!$('dailyDate'))return;
+ const site=dailySite(),
+       month=$('dailyMonth').value,
+       bread=[...breadBySiteDate.values()].filter(x=>x.site===site&&(!month||x.month===month)),
+       detail=raw.filter(x=>x.site===site&&(!month||x.month===month)),
+       sm=[...setmenuByKey.values()].filter(x=>x.site===site&&(!month||x.month===month)),
+       dates=[...new Set([...bread,...detail,...sm].map(x=>x.date).filter(Boolean))].sort(),
+       old=$('dailyDate').value;
+ $('dailyDate').innerHTML='<option value="">Kaikki päivät</option>'+dates.map(d=>`<option value="${esc(d)}">${fiDate(d)}</option>`).join('');
+ if(dates.includes(old))$('dailyDate').value=old; else $('dailyDate').value='';
+}
+
 function renderDaily(){
  if(!$('dailyDays'))return;
 
  $('dailyLevel').value=dailyMode;
-
- const site=$('siteSelect').value||[...setmenuByKey.values()][0]?.site||raw[0]?.site||[...breadBySiteDate.values()][0]?.site,
-       detailData=raw.filter(x=>x.site===site),
-       setmenuData=[...setmenuByKey.values()].filter(x=>x.site===site),
-       levelData=dailyMode==='DETAIL'?detailData:setmenuData,
-       breadData=[...breadBySiteDate.values()].filter(x=>x.site===site),
+ const site=dailySite(),
+       monthFilter=$('dailyMonth').value,
+       dateFilter=$('dailyDate').value,
+       statusFilter=$('dailyStatus').value,
+       detailData=raw.filter(x=>x.site===site&&(!monthFilter||x.month===monthFilter)),
+       setmenuData=[...setmenuByKey.values()].filter(x=>x.site===site&&(!monthFilter||x.month===monthFilter)),
+       breadData=[...breadBySiteDate.values()].filter(x=>x.site===site&&(!monthFilter||x.month===monthFilter)),
        modeName=dailyMode==='DETAIL'?'DETAIL':'SETMENU';
 
  $('dailyLevelInfo').textContent=dailyMode==='DETAIL'
-   ?'Kg ja € näytetään REPORT_LEVEL = DETAIL -riveiltä samoista TOTAL-kentistä.'
-   :'Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.';
+   ?'Päivän kokonaisluvut näytetään DETAIL-tasolta. Rivitasolla näytetään RECIPE / INVENTORY_ITEM -rivit. Päivän tila ja ruokailijamäärä tulevat aina Leipäpöydän SETMENU-riviltä.'
+   :'Päivän kokonaisluvut näytetään SETMENU-tasolta. Rivitasolla näytetään RECIPE / INVENTORY_ITEM -rivit. Päivän tila ja ruokailijamäärä tulevat aina Leipäpöydän SETMENU-riviltä.';
+
+ const levelData=dailyMode==='DETAIL'?detailData:setmenuData,
+       totalsByDay=new Map();
+
+ for(const x of levelData){
+  const d=totalsByDay.get(x.date)||{date:x.date,month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0};
+  d.planKg+=x.plannedKg||0; d.planCost+=x.planCost||0;
+  d.actualKg+=x.actualKg||0; d.actualCost+=x.actualCost||0;
+  totalsByDay.set(x.date,d);
+ }
+
+ // Leipäpöytä on päivän tilan auktoritatiivinen lähde.
+ const breadByDay=new Map(breadData.map(x=>[x.date,{plan:x.planPort||0,actual:x.prod||0,month:x.month}]));
+
+ // Rivitasolle vain RECIPE / INVENTORY_ITEM.
+ const lineRows=detailData.filter(x=>{
+  const t=(x.itemType||'').toUpperCase();
+  return t==='RECIPE'||t==='INVENTORY_ITEM';
+ });
+
+ const linesByDay=new Map();
+ for(const x of lineRows){
+  const arr=linesByDay.get(x.date)||[];
+  arr.push(x); linesByDay.set(x.date,arr);
+ }
 
  const allDates=[...new Set([
-   ...setmenuData.map(x=>x.date),
-   ...detailData.map(x=>x.date),
-   ...breadData.map(x=>x.date)
+   ...totalsByDay.keys(), ...breadByDay.keys(), ...linesByDay.keys()
  ])].filter(Boolean).sort();
 
- const prevDate=$('dailyDate').value;
- $('dailyDate').innerHTML='<option value="">Kaikki päivät</option>'+
-   allDates.map(d=>`<option value="${esc(d)}">${fiDate(d)}</option>`).join('');
- if(allDates.includes(prevDate))$('dailyDate').value=prevDate;
-
- const totalsByDay=new Map();
- for(const x of levelData){
-   const d=totalsByDay.get(x.date)||{date:x.date,month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0};
-   d.planKg+=x.plannedKg||0;
-   d.planCost+=x.planCost||0;
-   d.actualKg+=x.actualKg||0;
-   d.actualCost+=x.actualCost||0;
-   totalsByDay.set(x.date,d);
- }
-
- const breadByDay=new Map(breadData.map(x=>[x.date,{plan:x.planPort||0,actual:x.prod||0}]));
- const days=new Map();
-
- for(const x of detailData){
-   const t=totalsByDay.get(x.date)||{date:x.date,month:x.month,planKg:0,planCost:0,actualKg:0,actualCost:0},
-         b=breadByDay.get(x.date)||{plan:0,actual:0},
-         d=days.get(x.date)||{
-           date:x.date,month:x.month,
-           planKg:t.planKg,planCost:t.planCost,
-           actualKg:t.actualKg,actualCost:t.actualCost,
-           bread:b.plan,actualBread:b.actual,
-           hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
-           menus:new Map()
-         };
-
-   const m=d.menus.get(x.menu)||{name:x.menu,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0,recipes:new Map()};
-   if(x.planPort>0)m.qtyCandidates.push(x.planPort);
-   m.kg+=x.plannedKg||0;m.cost+=x.planCost||0;m.actualKg+=x.actualKg||0;m.actualCost+=x.actualCost||0;
-
-   const rn=x.recipe||'(resepti puuttuu)',
-         r=m.recipes.get(rn)||{name:rn,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0};
-   if(x.planPort>0)r.qtyCandidates.push(x.planPort);
-   r.kg+=x.plannedKg||0;r.cost+=x.planCost||0;r.actualKg+=x.actualKg||0;r.actualCost+=x.actualCost||0;
-   m.recipes.set(rn,r);
-   d.menus.set(x.menu,m);
-   days.set(x.date,d);
- }
-
- for(const [date,t] of totalsByDay){
-   if(days.has(date))continue;
-   const b=breadByDay.get(date)||{plan:0,actual:0};
-   days.set(date,{
-     date,month:t.month,
-     planKg:t.planKg,planCost:t.planCost,
-     actualKg:t.actualKg,actualCost:t.actualCost,
-     bread:b.plan,actualBread:b.actual,
-     hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
-     menus:new Map()
-   });
- }
-
- const dateFilter=$('dailyDate').value,
-       targetRaw=String($('dailyTarget').value||'').replace(',','.'),
+ const targetRaw=String($('dailyTarget').value||'').replace(',','.'),
        target=targetRaw===''?null:Number(targetRaw),
        targetFilter=$('dailyTargetFilter').value;
 
- let ordered=[...days.values()].sort((a,b)=>a.date.localeCompare(b.date));
-
- ordered=ordered.filter(d=>{
-   if(dateFilter&&d.date!==dateFilter)return false;
-   const portions=d.hasActual&&d.actualBread>0?d.actualBread:d.bread,
-         cost=d.hasActual&&d.actualCost>0?d.actualCost:d.planCost,
-         avg=portions?cost/portions:null;
-
-   if(target==null||!Number.isFinite(target)||targetFilter==='ALL')return true;
-   if(avg==null)return false;
-   if(targetFilter==='ABOVE')return avg>target;
-   if(targetFilter==='AT_OR_BELOW')return avg<=target;
-   return true;
+ let days=allDates.map(date=>{
+  const t=totalsByDay.get(date)||{date,month:breadByDay.get(date)?.month||'',planKg:0,planCost:0,actualKg:0,actualCost:0},
+        b=breadByDay.get(date)||{plan:0,actual:0},
+        hasPlan=b.plan>0,
+        hasProduced=b.actual>0,
+        status=hasPlan&&hasProduced?'PRODUCED':hasPlan?'PLANNED':hasProduced?'NO_PLAN':'UNKNOWN',
+        useActual=status==='PRODUCED'||status==='NO_PLAN',
+        portions=useActual?b.actual:b.plan,
+        totalCost=useActual?t.actualCost:t.planCost,
+        avg=portions>0?totalCost/portions:null;
+  return {...t,bread:b.plan,actualBread:b.actual,status,useActual,avg,lines:linesByDay.get(date)||[]};
+ }).filter(d=>{
+  if(dateFilter&&d.date!==dateFilter)return false;
+  if(statusFilter!=='ALL'&&d.status!==statusFilter)return false;
+  if(target==null||!Number.isFinite(target)||targetFilter==='ALL')return true;
+  if(d.avg==null)return false;
+  return targetFilter==='ABOVE'?d.avg>target:d.avg<=target;
  });
 
- const allVisible=ordered.length;
- $('dailySummary').innerHTML=`<div class="basicMonthSummary">
-   ${metric('Näytettävät päivät',num.format(allVisible),dateFilter?fiDate(dateFilter):'Kaikki aineiston päivät','info')}
-   ${metric('Laskentataso',modeName,`REPORT_LEVEL = ${modeName}`,'info')}
-   ${metric('Tavoiteannoskustannus',target!=null&&Number.isFinite(target)?euro.format(target):'–',
-     target!=null&&Number.isFinite(target)?'Suodatus käytettävissä yllä':'Tavoitetta ei asetettu','info')}
- </div>`;
+ // Requested: remove "Näytettävät päivät / Laskentataso / tavoitekustannus" boxes.
+ $('dailySummary').innerHTML='';
 
- if(!ordered.length){
-   $('dailyDays').innerHTML='<div class="info">Valituilla suodattimilla ei löytynyt päiviä.</div>';
-   return;
+ if(!days.length){
+  $('dailyDays').innerHTML='<div class="info">Valituilla suodattimilla ei löytynyt päiviä.</div>';
+  return;
  }
 
- $('dailyDays').innerHTML=ordered.map((d,di)=>{
-   const plannedDayAvg=d.bread?d.planCost/d.bread:null,
-         actualDayAvg=d.actualBread?d.actualCost/d.actualBread:null,
-         dayAvg=d.hasActual&&actualDayAvg!=null?actualDayAvg:plannedDayAvg,
-         isAbove=target!=null&&Number.isFinite(target)&&dayAvg!=null&&dayAvg>target,
-         cardClass=target!=null&&Number.isFinite(target)&&dayAvg!=null?(isAbove?'badLevel':'goodLevel'):'',
-         produced=d.hasActual?'<span class="badge badgeProd">✓ Toteutunut</span>':'<span class="badge badgePlan">Suunnitelma</span>',
-         breadLabel=d.hasActual?'Ruokailijoita / toteuma':'Ruokailijoita / suunnitelma',
-         breadValue=d.hasActual&&d.actualBread>0?d.actualBread:d.bread,
-         avgLabel=d.hasActual&&actualDayAvg!=null?'Toteutunut hinta / ruokailija':'Suunniteltu hinta / ruokailija',
-         targetBadge=target!=null&&Number.isFinite(target)&&dayAvg!=null
-           ?(isAbove?'<span class="badge badgeBad">Yli tavoitteen</span>':'<span class="badge badgeGood">Tavoitteessa</span>')
-           :'';
+ $('dailyDays').innerHTML=days.map((d,di)=>{
+  const planned=d.status==='PLANNED',
+        produced=d.status==='PRODUCED',
+        noPlan=d.status==='NO_PLAN',
+        statusBadge=produced
+          ?'<span class="badge badgeProd">✓ Toteutunut</span>'
+          :planned
+            ?'<span class="badge badgePlan">Suunniteltu</span>'
+            :noPlan
+              ?'<span class="badge badgeNoPlan">⚠ Ei suunnitelmaa</span>'
+              :'<span class="badge badgeWarn">Ei ruokailijatietoa</span>',
+        breadLabel=d.useActual?'Ruokailijoita / toteuma':'Ruokailijoita / suunnitelma',
+        breadValue=d.useActual?d.actualBread:d.bread,
+        kg=d.useActual?d.actualKg:d.planKg,
+        cost=d.useActual?d.actualCost:d.planCost,
+        avgLabel=d.useActual?'Toteutunut hinta / ruokailija':'Suunniteltu hinta / ruokailija',
+        targetAbove=target!=null&&Number.isFinite(target)&&d.avg!=null&&d.avg>target,
+        targetBadge=target!=null&&Number.isFinite(target)&&d.avg!=null
+          ?(targetAbove?'<span class="badge badgeBad">Yli tavoitteen</span>':'<span class="badge badgeGood">Tavoitteessa</span>')
+          :'',
+        cardClass=noPlan?'statusNoPlan':(target!=null&&Number.isFinite(target)&&d.avg!=null?(targetAbove?'badLevel':'goodLevel'):''),
+        rowMode=d.useActual?'ACTUAL':'PLAN';
 
-   const menus=[...d.menus.values()].sort((a,b)=>b.cost-a.cost).map((m,mi)=>{
-     const qty=m.qtyCandidates.length?Math.max(...m.qtyCandidates):0,
-           unit=qty?m.cost/qty:null,
-           recipes=[...m.recipes.values()].sort((a,b)=>b.cost-a.cost);
+  const rows=d.lines
+    .filter(x=>{
+      // Planning day: show rows with planned values. Produced/no-plan: actual values.
+      return rowMode==='PLAN'
+        ?((x.plannedKg||0)!==0||(x.planCost||0)!==0||(x.planPort||0)!==0)
+        :((x.actualKg||0)!==0||(x.actualCost||0)!==0||(x.prod||0)!==0);
+    })
+    .sort((a,b)=>{
+      const menuCmp=(a.menu||'').localeCompare(b.menu||'','fi',{sensitivity:'base'});
+      if(menuCmp)return menuCmp;
+      const av=rowMode==='PLAN'?(a.planCost||0):(a.actualCost||0),
+            bv=rowMode==='PLAN'?(b.planCost||0):(b.actualCost||0);
+      if(bv!==av)return bv-av;
+      return (a.recipe||'').localeCompare(b.recipe||'','fi',{sensitivity:'base'});
+    });
 
-     const recipeRowsHtml=recipes.map(r=>{
-       const rq=r.qtyCandidates.length?Math.max(...r.qtyCandidates):0,
-             ru=rq?r.cost/rq:null;
-       return`<tr>
-         <td>${esc(r.name)}</td>
-         <td class="num">${num.format(rq)}</td>
-         <td class="num">${num.format(r.kg)} kg</td>
-         <td class="num">${euro.format(r.cost)}</td>
-         <td class="num">${ru==null?'–':euro.format(ru)}</td>
-         <td class="num">${num.format(r.actualKg)} kg</td>
-       </tr>`;
-     }).join('');
+  const rowHtml=rows.map(x=>{
+    const rowKg=rowMode==='PLAN'?(x.plannedKg||0):(x.actualKg||0),
+          rowCost=rowMode==='PLAN'?(x.planCost||0):(x.actualCost||0);
+    return`<tr>
+      <td>${esc(x.recipe||'(nimi puuttuu)')}</td>
+      <td>${esc(x.menu||'')}</td>
+      <td class="num">${num.format(rowKg)} kg</td>
+      <td class="num">${euro.format(rowCost)}</td>
+    </tr>`;
+  }).join('');
 
-     return`<div class="menuItem" id="daily_${di}_${mi}">
-       <button class="menuButton" type="button" onclick="event.stopPropagation();this.parentElement.classList.toggle('open')">
-         <div><div class="menuName">${esc(m.name)}</div><div class="dayMeta">${recipes.length} reseptiä</div></div>
-         <div class="menuMetric"><div class="mKey">Määrä</div><div class="mVal">${num.format(qty)}</div></div>
-         <div class="menuMetric"><div class="mKey">Kg</div><div class="mVal">${num.format(m.kg)} kg</div></div>
-         <div class="menuMetric hideTablet"><div class="mKey">Kustannus</div><div class="mVal">${euro.format(m.cost)}</div></div>
-         <div class="menuMetric hideTablet"><div class="mKey">€/annos</div><div class="mVal">${unit==null?'–':euro.format(unit)}</div></div>
-         <div class="chev">▶</div>
-       </button>
-       <div class="recipeBox"><table class="recipeTable">
-       <thead><tr><th>Ruoka</th><th class="num">Määrä</th><th class="num">Kg</th><th class="num">Kustannus</th><th class="num">€/annos</th><th class="num">Valmistettu ruokamäärä</th></tr></thead>
-       <tbody>${recipeRowsHtml}</tbody></table></div>
-     </div>`;
-   }).join('');
-
-   return`<div class="dayCard ${cardClass}">
-     <div class="dayHead" onclick="this.parentElement.classList.toggle('open')">
-       <div><div class="dayTitle">${fiDate(d.date)}</div><div class="dayMeta">${monthName(d.month)} · ${d.menus.size} ruokalistaa / SETMENUNAME · ${modeName}-laskenta</div></div>
-       <div class="dayBadges">${produced}${targetBadge}<span class="dayToggle">▶</span></div>
-     </div>
-     <div class="dayStats">
-       <div class="dayStat"><div class="k">${breadLabel}</div><div class="v">${num.format(breadValue)}</div></div>
-       <div class="dayStat"><div class="k">${modeName} suunn. kg</div><div class="v">${num.format(d.planKg)} kg</div></div>
-       <div class="dayStat"><div class="k">${modeName} suunn. €</div><div class="v">${euro.format(d.planCost)}</div></div>
-       <div class="dayStat"><div class="k">${avgLabel}</div><div class="v">${dayAvg==null?'–':euro.format(dayAvg)}</div></div>
-       <div class="dayStat actual"><div class="k">${modeName} toteuma kg</div><div class="v">${num.format(d.actualKg)} kg</div></div>
-       <div class="dayStat actual"><div class="k">${modeName} toteuma €</div><div class="v">${euro.format(d.actualCost)}</div></div>
-     </div>
-     <div class="menuList">${menus}</div>
-   </div>`;
+  return`<div class="dayCard ${cardClass}">
+    <div class="dayHead" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <div class="dayTitle">${fiDate(d.date)}</div>
+        <div class="dayMeta">${monthName(d.month)} · ${rows.length} RECIPE / INVENTORY_ITEM -riviä</div>
+      </div>
+      <div class="dayBadges">${statusBadge}${targetBadge}<span class="dayToggle">▶</span></div>
+    </div>
+    <div class="dayStats">
+      <div class="dayStat"><div class="k">${breadLabel}</div><div class="v">${num.format(breadValue)}</div></div>
+      <div class="dayStat"><div class="k">${d.useActual?'Toteutunut':'Suunniteltu'} kg</div><div class="v">${num.format(kg)} kg</div></div>
+      <div class="dayStat"><div class="k">${d.useActual?'Toteutunut':'Suunniteltu'} €</div><div class="v">${euro.format(cost)}</div></div>
+      <div class="dayStat"><div class="k">${avgLabel}</div><div class="v">${d.avg==null?'–':euro.format(d.avg)}</div></div>
+    </div>
+    <div class="menuList">
+      ${rows.length?`<div class="tablewrap" style="margin:0;max-height:none">
+        <table class="recipeTable">
+          <thead><tr><th>Ruoka / tuote</th><th>Ruokalista</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} kg</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} €</th></tr></thead>
+          <tbody>${rowHtml}</tbody>
+        </table>
+      </div>`:'<div class="info">Päivälle ei löytynyt RECIPE / INVENTORY_ITEM -rivitasoa.</div>'}
+    </div>
+  </div>`;
  }).join('');
 }
-
-function renderBasic(){
- if(!planningMonth)return;
-
- $('planLevel').value=planMode;
-
- const site=$('siteSelect').value||[...setmenuByKey.values()][0]?.site||raw[0]?.site||recipeRows[0]?.site||[...breadBySiteDate.values()][0]?.site,
-       detailData=raw.filter(x=>x.site===site&&x.month===planningMonth),
-       setmenuData=[...setmenuByKey.values()].filter(x=>x.site===site&&x.month===planningMonth),
-       levelData=planMode==='DETAIL'?detailData:setmenuData,
-       breadData=[...breadBySiteDate.values()].filter(x=>x.site===site&&x.month===planningMonth);
-
- $('planLevelInfo').textContent=planMode==='DETAIL'
-   ?'Kg ja € näytetään REPORT_LEVEL = DETAIL -riveiltä samoista TOTAL-kentistä.'
-   :'Kg ja € näytetään REPORT_LEVEL = SETMENU -riveiltä.';
-
- // Kuukauden luvut valitulta laskentatasolta.
- let monthPlanKg=0,monthPlanCost=0,monthActualKg=0,monthActualCost=0,monthBread=0;
- for(const x of levelData){
-   monthPlanKg+=x.plannedKg||0;
-   monthPlanCost+=x.planCost||0;
-   monthActualKg+=x.actualKg||0;
-   monthActualCost+=x.actualCost||0;
- }
- monthBread=breadData.reduce((s,x)=>s+(x.planPort||0),0);
-
- const monthAvg=monthBread?monthPlanCost/monthBread:null,
-       modeName=planMode==='DETAIL'?'DETAIL':'SETMENU',
-       targetRaw=String($('planTarget').value||'').replace(',','.'),
-       target=targetRaw===''?null:Number(targetRaw),
-       targetFilter=$('planTargetFilter').value;
-
- $('basicMonth').innerHTML=`<div class="basicMonthSummary">
-   ${metric('Suunnittelukuukausi',monthName(planningMonth),`${num.format(monthBread)} suunniteltua ruokailijaa`,'info')}
-   ${metricDual(`${modeName} – suunnitelma`,num.format(monthPlanKg)+' kg','kg',euro.format(monthPlanCost),'kustannus','info',`REPORT_LEVEL = ${modeName}`)}
-   ${metricDual(`${modeName} – toteuma`,num.format(monthActualKg)+' kg','kg',euro.format(monthActualCost),'kustannus',monthActualKg>0?'good':'info')}
-   ${metric(`${modeName} hinta / ruokailija`,monthAvg==null?'–':euro.format(monthAvg),`${euro.format(monthPlanCost)} ÷ ${num.format(monthBread)} ruokailijaa`,'info')}
- </div>`;
-
- // DETAIL-rivejä käytetään edelleen ruoka-/reseptierittelyyn.
- const menuBase=new Map(),recipeBase=new Map();
- for(const x of detailData){
-   if(x.planPort>0&&x.planCost>0){
-     const m=menuBase.get(x.menu)||{cost:0,qty:0};m.cost+=x.planCost;m.qty+=x.planPort;menuBase.set(x.menu,m);
-     const rk=x.recipe||'(resepti puuttuu)',r=recipeBase.get(rk)||{cost:0,qty:0};r.cost+=x.planCost;r.qty+=x.planPort;recipeBase.set(rk,r);
-   }
- }
-
- // Päivätason kokonaisluvut valitulta REPORT_LEVEL-tasolta.
- const totalsByDay=new Map();
- for(const x of levelData){
-   const d=totalsByDay.get(x.date)||{planKg:0,planCost:0,actualKg:0,actualCost:0};
-   d.planKg+=x.plannedKg||0;
-   d.planCost+=x.planCost||0;
-   d.actualKg+=x.actualKg||0;
-   d.actualCost+=x.actualCost||0;
-   totalsByDay.set(x.date,d);
- }
-
- const breadByDay=new Map(breadData.map(x=>[x.date,{plan:x.planPort||0,actual:x.prod||0}]));
- const days=new Map();
-
- // DETAIL-rivit muodostavat ruoka- ja reseptierittelyn riippumatta valitusta ylätason laskennasta.
- for(const x of detailData){
-   const t=totalsByDay.get(x.date)||{planKg:0,planCost:0,actualKg:0,actualCost:0},
-         b=breadByDay.get(x.date)||{plan:0,actual:0},
-         d=days.get(x.date)||{
-           date:x.date,
-           planKg:t.planKg,planCost:t.planCost,
-           bread:b.plan,actualBread:b.actual,
-           actualKg:t.actualKg,actualCost:t.actualCost,
-           hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
-           menus:new Map()
-         };
-
-   const m=d.menus.get(x.menu)||{name:x.menu,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0,recipes:new Map()};
-   if(x.planPort>0)m.qtyCandidates.push(x.planPort);
-   m.kg+=x.plannedKg||0;m.cost+=x.planCost||0;m.actualKg+=x.actualKg||0;m.actualCost+=x.actualCost||0;
-
-   const rn=x.recipe||'(resepti puuttuu)',
-         r=m.recipes.get(rn)||{name:rn,qtyCandidates:[],kg:0,cost:0,actualKg:0,actualCost:0};
-   if(x.planPort>0)r.qtyCandidates.push(x.planPort);
-   r.kg+=x.plannedKg||0;r.cost+=x.planCost||0;r.actualKg+=x.actualKg||0;r.actualCost+=x.actualCost||0;
-   m.recipes.set(rn,r);
-   d.menus.set(x.menu,m);
-   days.set(x.date,d);
- }
-
- // Näytä myös päivä, jolla on valitun tason dataa mutta ei DETAIL-rivejä.
- for(const [date,t] of totalsByDay){
-   if(days.has(date))continue;
-   const b=breadByDay.get(date)||{plan:0,actual:0};
-   days.set(date,{
-     date,
-     planKg:t.planKg,planCost:t.planCost,
-     bread:b.plan,actualBread:b.actual,
-     actualKg:t.actualKg,actualCost:t.actualCost,
-     hasActual:(t.actualKg>0||t.actualCost>0||b.actual>0),
-     menus:new Map()
-   });
- }
-
- let ordered=[...days.values()].sort((a,b)=>a.date.localeCompare(b.date));
-
- ordered=ordered.filter(d=>{
-   const plannedDayAvg=d.bread?d.planCost/d.bread:null,
-         actualDayAvg=d.actualBread?d.actualCost/d.actualBread:null,
-         dayAvg=d.hasActual&&actualDayAvg!=null?actualDayAvg:plannedDayAvg;
-
-   if(target==null||!Number.isFinite(target)||targetFilter==='ALL')return true;
-   if(dayAvg==null)return false;
-   if(targetFilter==='ABOVE')return dayAvg>target;
-   if(targetFilter==='AT_OR_BELOW')return dayAvg<=target;
-   return true;
- });
-
- if(!ordered.length){
-   $('basicDays').innerHTML='<div class="info">Valituilla tavoitesuodattimilla ei löytynyt päiviä.</div>';
-   return;
- }
-
- $('basicDays').innerHTML=ordered.map((d,di)=>{
-   const plannedDayAvg=d.bread?d.planCost/d.bread:null,
-         actualDayAvg=d.actualBread?d.actualCost/d.actualBread:null,
-         dayAvg=d.hasActual&&actualDayAvg!=null?actualDayAvg:plannedDayAvg,
-         baseLevel=costLevel(dayAvg,monthAvg),
-         isAboveTarget=target!=null&&Number.isFinite(target)&&dayAvg!=null&&dayAvg>target,
-         dayLevel=target!=null&&Number.isFinite(target)&&dayAvg!=null?(isAboveTarget?'badLevel':'goodLevel'):baseLevel;
-
-   const produced=d.hasActual?'<span class="badge badgeProd">✓ Toteutunut</span>':'<span class="badge badgePlan">Suunnitelma</span>',
-         breadLabel=d.hasActual?'Ruokailijoita / toteuma':'Ruokailijoita / suunnitelma',
-         breadValue=d.hasActual&&d.actualBread>0?d.actualBread:d.bread,
-         avgLabel=d.hasActual&&actualDayAvg!=null?'Toteutunut hinta / ruokailija':'Suunniteltu hinta / ruokailija',
-         targetBadge=target!=null&&Number.isFinite(target)&&dayAvg!=null
-           ?(isAboveTarget?'<span class="badge badgeBad">Yli tavoitteen</span>':'<span class="badge badgeGood">Tavoitteessa</span>')
-           :'';
-
-   const menus=[...d.menus.values()].sort((a,b)=>b.cost-a.cost).map((m,mi)=>{
-     const qty=m.qtyCandidates.length?Math.max(...m.qtyCandidates):0,
-           unit=qty?m.cost/qty:null,
-           mb=menuBase.get(m.name),baseline=mb&&mb.qty?mb.cost/mb.qty:null,
-           level=costLevel(unit,baseline),
-           recipes=[...m.recipes.values()].sort((a,b)=>b.cost-a.cost);
-
-     const recipeRowsHtml=recipes.map(r=>{
-       const rq=r.qtyCandidates.length?Math.max(...r.qtyCandidates):0,
-             ru=rq?r.cost/rq:null,
-             rb=recipeBase.get(r.name),rbase=rb&&rb.qty?rb.cost/rb.qty:null,
-             rl=costLevel(ru,rbase),
-             rowCl=rl==='goodLevel'?'recipeGood':rl==='badLevel'?'recipeBad':'recipeWarn';
-
-       return`<tr class="${rowCl}">
-         <td>${esc(r.name)}</td>
-         <td class="num">${num.format(rq)}</td>
-         <td class="num">${num.format(r.kg)} kg</td>
-         <td class="num">${euro.format(r.cost)}</td>
-         <td class="num">${ru==null?'–':euro.format(ru)}</td>
-         <td class="num">${num.format(r.actualKg)} kg</td>
-         <td>${levelBadge(ru,rbase)}</td>
-       </tr>`;
-     }).join('');
-
-     return`<div class="menuItem ${level}" id="menu_${di}_${mi}">
-       <button class="menuButton" type="button" onclick="event.stopPropagation();this.parentElement.classList.toggle('open')">
-         <div><div class="menuName">${esc(m.name)}</div><div class="dayMeta">${recipes.length} reseptiä</div></div>
-         <div class="menuMetric"><div class="mKey">Määrä</div><div class="mVal">${num.format(qty)}</div></div>
-         <div class="menuMetric"><div class="mKey">Kg</div><div class="mVal">${num.format(m.kg)} kg</div></div>
-         <div class="menuMetric hideTablet"><div class="mKey">Kustannus</div><div class="mVal">${euro.format(m.cost)}</div></div>
-         <div class="menuMetric hideTablet"><div class="mKey">€/annos</div><div class="mVal">${unit==null?'–':euro.format(unit)}</div></div>
-         <div class="chev">▶</div>
-       </button>
-       <div class="recipeBox"><table class="recipeTable"><thead><tr><th>Ruoka</th><th class="num">Määrä</th><th class="num">Kg</th><th class="num">Kustannus</th><th class="num">€/annos</th><th class="num">Valmistettu ruokamäärä</th><th>Kustannustaso</th></tr></thead><tbody>${recipeRowsHtml}</tbody></table></div>
-     </div>`;
-   }).join('');
-
-   return`<div class="dayCard ${dayLevel}">
-     <div class="dayHead" onclick="this.parentElement.classList.toggle('open')">
-       <div><div class="dayTitle">${fiDate(d.date)}</div><div class="dayMeta">${d.menus.size} ruokalistaa / SETMENUNAME · ${modeName}-laskenta · klikkaa avataksesi</div></div>
-       <div class="dayBadges">${produced}${targetBadge}${target==null||!Number.isFinite(target)?levelBadge(dayAvg,monthAvg):''}<span class="dayToggle">▶</span></div>
-     </div>
-     <div class="dayStats">
-       <div class="dayStat"><div class="k">${breadLabel}</div><div class="v">${num.format(breadValue)}</div></div>
-       <div class="dayStat"><div class="k">${modeName} suunn. kg</div><div class="v">${num.format(d.planKg)} kg</div></div>
-       <div class="dayStat"><div class="k">${modeName} suunn. €</div><div class="v">${euro.format(d.planCost)}</div></div>
-       <div class="dayStat"><div class="k">${avgLabel}</div><div class="v">${dayAvg==null?'–':euro.format(dayAvg)}</div></div>
-       <div class="dayStat actual"><div class="k">${modeName} toteuma kg</div><div class="v">${num.format(d.actualKg)} kg</div></div>
-       <div class="dayStat actual"><div class="k">${modeName} toteuma €</div><div class="v">${euro.format(d.actualCost)}</div></div>
-     </div>
-     <div class="menuList">${menus}</div>
-   </div>`;
- }).join('');
-}
-
 
 function renderPurchases(){
  if(!$('purchaseGroups'))return;
