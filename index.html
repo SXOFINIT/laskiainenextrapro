@@ -752,16 +752,49 @@ function renderDaily(){
       return (a.recipe||'').localeCompare(b.recipe||'','fi',{sensitivity:'base'});
     });
 
-  const rowHtml=rows.map(x=>{
-    const rowKg=rowMode==='PLAN'?(x.plannedKg||0):(x.actualKg||0),
-          rowCost=rowMode==='PLAN'?(x.planCost||0):(x.actualCost||0);
-    return`<tr>
-      <td>${esc(x.recipe||'(nimi puuttuu)')}</td>
-      <td>${esc(x.menu||'')}</td>
-      <td class="num">${num.format(rowKg)} kg</td>
-      <td class="num">${euro.format(rowCost)}</td>
-    </tr>`;
-  }).join('');
+  // SETMENU-kohtainen yhteenveto, jonka alle DETAIL-tason reseptit ja raaka-aineet.
+  // Päivän tila määrää, käytetäänkö suunnitelman vai toteuman TOTAL-kenttiä.
+  const menus=new Map();
+  for(const x of (dailyMode==='DETAIL'?detailData:setmenuData).filter(x=>x.date===d.date)){
+    const name=x.menu||'(Ruokalista puuttuu)';
+    const group=menus.get(name)||{name,kg:0,cost:0,lines:[]};
+    group.kg+=rowMode==='PLAN'?(x.plannedKg||0):(x.actualKg||0);
+    group.cost+=rowMode==='PLAN'?(x.planCost||0):(x.actualCost||0);
+    menus.set(name,group);
+  }
+  for(const x of rows){
+    const name=x.menu||'(Ruokalista puuttuu)';
+    const group=menus.get(name)||{name,kg:0,cost:0,lines:[]};
+    group.lines.push(x);
+    menus.set(name,group);
+  }
+  const menuHtml=[...menus.values()]
+    .filter(g=>g.lines.length||g.kg!==0||g.cost!==0)
+    .sort((a,b)=>a.name.localeCompare(b.name,'fi',{sensitivity:'base'}))
+    .map(g=>{
+      const rowHtml=g.lines.map(x=>{
+        const rowKg=rowMode==='PLAN'?(x.plannedKg||0):(x.actualKg||0),
+              rowCost=rowMode==='PLAN'?(x.planCost||0):(x.actualCost||0);
+        return`<tr>
+          <td>${esc(x.recipe||'(nimi puuttuu)')}</td>
+          <td class="num">${num.format(rowKg)} kg</td>
+          <td class="num">${euro.format(rowCost)}</td>
+        </tr>`;
+      }).join('');
+      return`<div class="menuItem">
+        <button class="menuButton" type="button" aria-expanded="false" onclick="const p=this.parentElement;p.classList.toggle('open');this.setAttribute('aria-expanded',p.classList.contains('open'))">
+          <div><div class="menuName">${esc(g.name)}</div><div class="dayMeta">${g.lines.length} resepti- / raaka-aineriviä</div></div>
+          <div class="menuMetric"><div class="mKey">${d.useActual?'Toteutunut':'Suunniteltu'} kg</div><div class="mVal">${num.format(g.kg)} kg</div></div>
+          <div class="menuMetric"><div class="mKey">${d.useActual?'Toteutunut':'Suunniteltu'} €</div><div class="mVal">${euro.format(g.cost)}</div></div>
+          <span class="chev">▶</span>
+        </button>
+        <div class="recipeBox">
+          ${g.lines.length?`<div class="tablewrap" style="margin:0;max-height:none;border:0;border-radius:0">
+            <table class="recipeTable"><thead><tr><th>Ruoka / raaka-aine</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} kg</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} €</th></tr></thead><tbody>${rowHtml}</tbody></table>
+          </div>`:'<div class="info">Tälle ruokalistalle ei löytynyt RECIPE / INVENTORY_ITEM -rivejä.</div>'}
+        </div>
+      </div>`;
+    }).join('');
 
   return`<div class="dayCard ${cardClass}">
     <div class="dayHead" onclick="this.parentElement.classList.toggle('open')">
@@ -778,12 +811,7 @@ function renderDaily(){
       <div class="dayStat"><div class="k">${avgLabel}</div><div class="v">${d.avg==null?'–':euro.format(d.avg)}</div></div>
     </div>
     <div class="menuList">
-      ${rows.length?`<div class="tablewrap" style="margin:0;max-height:none">
-        <table class="recipeTable">
-          <thead><tr><th>Ruoka / tuote</th><th>Ruokalista</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} kg</th><th class="num">${d.useActual?'Toteutunut':'Suunniteltu'} €</th></tr></thead>
-          <tbody>${rowHtml}</tbody>
-        </table>
-      </div>`:'<div class="info">Päivälle ei löytynyt RECIPE / INVENTORY_ITEM -rivitasoa.</div>'}
+      ${menuHtml||'<div class="info">Päivälle ei löytynyt ruokalistoja.</div>'}
     </div>
   </div>`;
  }).join('');
